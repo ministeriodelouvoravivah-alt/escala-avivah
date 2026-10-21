@@ -283,6 +283,14 @@ button.ag-item:hover{border-color:var(--flame)}
 .ag-acao{font-size:12.5px;font-weight:700;color:var(--warn);display:flex;align-items:center;gap:5px}
 .ag-acao::before{content:"";width:7px;height:7px;border-radius:50%;background:currentColor}
 .ag-sec{font-family:var(--f-display);font-size:12px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:6px 2px -2px}
+.aviso-bar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:12px 14px;box-shadow:var(--shadow)}
+.aviso-ico{width:38px;height:38px;border-radius:50%;background:var(--brand-soft);color:var(--brand);display:grid;place-items:center;flex:none}
+.aviso-ico svg{width:19px;height:19px}
+.aviso-txt{flex:1 1 220px;min-width:0;font-size:13.5px;color:var(--muted);line-height:1.4}
+.aviso-txt strong{display:block;font-size:15px;color:var(--brand)}
+.previa{margin-top:12px;border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.previa summary{cursor:pointer;padding:12px 14px;font-weight:700;color:var(--brand);font-size:14px}
+.previa-box{max-height:420px;overflow:auto;border-top:1px solid var(--line)}
 .min-list .usr{font-family:var(--f-mono);font-size:12px;color:var(--muted);font-weight:500}
 
 /* Tela de login: a própria escala desfocada ao fundo, cartão à frente */
@@ -390,6 +398,7 @@ const CONFIG = {
   API_URL: "https://script.google.com/macros/s/AKfycbxrhX4edbA7aVQrjiIY4e7g8OeeX_7A9HvKmPRTUlxskJDYWYRQ8M6rKq8xc8HBBHF8/exec",
   NOME: "Ministério Avivah"
 };
+const VERSAO_APP = "2026.10.21-4"; // muda a cada versão enviada; não precisa editar
 /* ======================================================== */
 
 const MESES=["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
@@ -451,19 +460,104 @@ function normalizarFuncoes(o){
 function normalizarDresscode(l){
   return (Array.isArray(l)?l:[]).map(x=>String(x).trim().toLowerCase()).filter(x=>HEX_RE.test(x)).filter((x,i,a)=>a.indexOf(x)===i).slice(0,6);
 }
-const TABELAS_POR_ACAO={trocarSenha:["Membros"],saveMembro:["Membros"],deleteMembro:["Membros"],saveCulto:["Cultos"],deleteCulto:["Cultos"],
+const TABELAS_POR_ACAO={salvarEmail:["Membros"],avisarEquipe:["Avisos"],trocarSenha:["Membros"],saveMembro:["Membros"],deleteMembro:["Membros"],saveCulto:["Cultos"],deleteCulto:["Cultos"],
   saveRepertorio:["Cultos"],saveFeedback:["Cultos"],saveLimpeza:["Limpeza"],deleteLimpeza:["Limpeza"],saveEvento:["Eventos"],deleteEvento:["Eventos"]};
 function fotoVersao(f){f=String(f||"");return f?f.length.toString(36)+f.slice(-12):"";}
 function dadosPublicos(db){
   return {membros:(db.membros||[]).map(m=>({id:m.id,nome:m.nome,ministro:!!m.ministro,lider:!!m.lider,cantor:!!m.cantor,musico:!!m.musico,fotoV:fotoVersao(m.foto)})),
-    cultos:db.cultos||[],limpeza:db.limpeza||[],eventos:db.eventos||[]};
+    cultos:db.cultos||[],limpeza:db.limpeza||[],eventos:db.eventos||[],avisos:(db.avisos||[]).map(a=>({mes:a.mes,enviadoEm:a.enviadoEm,enviadoPor:a.enviadoPor}))};
 }
 function fotosDe(db){const o={};(db.membros||[]).forEach(m=>{if(m.foto) o[m.id]=m.foto;});return o;}
+/* ----- E-mails (montados aqui e enviados pelo servidor) ----- */
+const NOMES_MES=["janeiro","fevereiro","março","abril","maio","junho","julho","agosto","setembro","outubro","novembro","dezembro"];
+const NOMES_DIA=["domingo","segunda","terça","quarta","quinta","sexta","sábado"];
+const EMAIL_RE=/^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const NOMES_CORES={"#111111":"Preto","#ffffff":"Branco","#8d9096":"Cinza","#1b2f6b":"Azul-marinho","#7fb3e3":"Azul-claro","#4a6fa5":"Jeans","#6e1423":"Vinho","#c8102e":"Vermelho",
+  "#e9a6bd":"Rosa","#4b5320":"Verde-oliva","#2f7d4a":"Verde","#e3c86a":"Amarelo","#d9c4a3":"Bege","#c9b79c":"Nude","#6b4423":"Marrom","#c26a2c":"Terracota"};
+function escH(s){return String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
+function dataBR(ds){const p=String(ds).split("-");const d=new Date(+p[0],+p[1]-1,+p[2]);return NOMES_DIA[d.getDay()]+", "+p[2]+"/"+p[1];}
+function diasEntre(a,b){const f=x=>{const p=String(x).split("-");return Date.UTC(+p[0],+p[1]-1,+p[2]);};return Math.round((f(b)-f(a))/86400000);}
+function nomeNaLista(txt,nome){const n=norm(nome),p=n.split(/\s+/)[0];return nomesDe(txt).some(x=>x===n||x===p);}
+function papeisDe(c,m){const out=[];if(c.ministroId===m.id) out.push("Ministro");const f=c.funcoes||{};FUNCOES.forEach(x=>{if(nomeNaLista(f[x[0]],m.nome)) out.push(x[1]);});return out;}
+function qtdMusicas(c){return (c.musicas||[]).filter(x=>x&&x.titulo).length;}
+function porData(a,b){return (a.data+(a.hora||"")).localeCompare(b.data+(b.hora||""));}
+function nomeMinistroDb(db,id){const m=(db.membros||[]).find(x=>x.id===id);return m?m.nome:"a definir";}
+function emailBase(titulo,corpo,link,nomeMin){
+  return '<div style="font-family:Arial,Helvetica,sans-serif;background:#f1f4fa;padding:24px 12px">'+
+    '<div style="max-width:560px;margin:0 auto;background:#ffffff;border-radius:16px;overflow:hidden;border:1px solid #dfe5f1">'+
+    '<div style="background:#14307f;color:#ffffff;padding:22px 24px;border-bottom:4px solid #d9161f">'+
+    '<div style="font-size:12px;letter-spacing:2px;font-weight:bold;color:#ffb1aa">'+escH(String(nomeMin||"Ministério de louvor").toUpperCase())+'</div>'+
+    '<div style="font-size:22px;font-weight:bold;margin-top:4px">'+escH(titulo)+'</div></div>'+
+    '<div style="padding:22px 24px;color:#0f1a3a;font-size:15px;line-height:1.5">'+corpo+
+    (link?'<p style="margin:24px 0 4px"><a href="'+escH(link)+'" style="display:inline-block;background:#14307f;color:#ffffff;text-decoration:none;font-weight:bold;padding:12px 22px;border-radius:999px">Abrir a escala</a></p>':'')+
+    '</div></div><p style="text-align:center;color:#59627d;font-size:12px;margin:14px 0 0">Você recebe este e-mail porque faz parte do ministério de louvor.</p></div>';
+}
+function linhaEmail(t,s){return '<tr><td style="padding:10px 0;border-top:1px solid #dfe5f1"><div style="font-weight:bold;color:#14307f">'+t+'</div>'+(s?'<div style="color:#59627d;font-size:14px">'+s+'</div>':'')+'</td></tr>';}
+function tabelaEmail(linhas){return '<table role="presentation" style="width:100%;border-collapse:collapse">'+linhas.join("")+'</table>';}
+function emailEscala(db,m,chave,link,nomeMin){
+  const mesNome=NOMES_MES[Number(chave.slice(5,7))-1], pref=chave+"-", itens=[];
+  (db.cultos||[]).filter(c=>String(c.data).startsWith(pref)).sort(porData).forEach(c=>{
+    const p=papeisDe(c,m); if(!p.length) return;
+    itens.push(linhaEmail(escH(dataBR(c.data))+(c.hora?' · '+escH(c.hora):'')+' — '+escH(c.titulo),
+      'Você: <strong>'+escH(p.join(", "))+'</strong>'+(p.indexOf("Ministro")<0?' · Ministro: '+escH(nomeMinistroDb(db,c.ministroId)):'')));
+  });
+  (db.limpeza||[]).filter(x=>String(x.data).startsWith(pref)&&nomeNaLista(x.responsaveis,m.nome)).sort(porData).forEach(x=>
+    itens.push(linhaEmail(escH(dataBR(x.data))+' — Escala de limpeza','Com '+escH(x.responsaveis))));
+  const nMin=(db.cultos||[]).filter(c=>String(c.data).startsWith(pref)&&c.ministroId===m.id).length;
+  const evs=(db.eventos||[]).filter(e=>String(e.data).startsWith(pref)).sort(porData);
+  let corpo='<p style="margin:0 0 12px">Olá, '+escH(String(m.nome).split(/\s+/)[0])+'! A escala de '+mesNome+' está pronta.</p>';
+  corpo+=itens.length?'<p style="margin:0 0 6px">Você vai servir em <strong>'+itens.length+(itens.length>1?' compromissos':' compromisso')+'</strong>:</p>'+tabelaEmail(itens)
+    :'<p style="margin:0">Você não está na escala deste mês. Acompanhe os cultos e os eventos do ministério pelo app.</p>';
+  if(nMin) corpo+='<p style="margin:16px 0 0;background:#fde6e3;color:#8f1016;padding:12px 14px;border-radius:10px">Você é ministro em <strong>'+nMin+(nMin>1?' cultos':' culto')+'</strong>. Lance o repertório no app: Celebração, Exaltação, Rendição, Adoração e a música da oferta, cada uma com o link do YouTube.</p>';
+  if(evs.length) corpo+='<p style="margin:18px 0 6px;font-weight:bold;color:#14307f">Eventos do ministério</p>'+
+    tabelaEmail(evs.map(e=>linhaEmail(escH(dataBR(e.data))+(e.hora?' · '+escH(e.hora):'')+' — '+escH(e.titulo),escH(e.local||""))));
+  return {assunto:"Escala de "+mesNome+" pronta",html:emailBase("Escala de "+mesNome,corpo,link,nomeMin)};
+}
+function emailHoje(db,m,hoje,link,nomeMin){
+  const itens=[], pend=[];
+  (db.cultos||[]).filter(c=>c.data===hoje).sort(porData).forEach(c=>{
+    const p=papeisDe(c,m); if(!p.length) return;
+    const dc=(c.dresscode||[]).map(h=>NOMES_CORES[h]||"Cor "+String(h).toUpperCase()).join(", ");
+    itens.push(linhaEmail(escH(c.titulo)+(c.hora?' às '+escH(c.hora):''),'Você: <strong>'+escH(p.join(", "))+'</strong>'+(dc?' · Dresscode: '+escH(dc):'')));
+    if(c.ministroId===m.id&&qtdMusicas(c)<5) pend.push(c);
+  });
+  (db.limpeza||[]).filter(x=>x.data===hoje&&nomeNaLista(x.responsaveis,m.nome)).forEach(x=>itens.push(linhaEmail("Escala de limpeza","Com "+escH(x.responsaveis))));
+  if(!itens.length) return null;
+  let corpo='<p style="margin:0 0 6px">Olá, '+escH(String(m.nome).split(/\s+/)[0])+'! Hoje é dia de servir. Confira:</p>'+tabelaEmail(itens);
+  pend.forEach(c=>{corpo+='<p style="margin:16px 0 0;background:#fbecd6;color:#7a4300;padding:12px 14px;border-radius:10px">O repertório de <strong>'+escH(c.titulo)+'</strong> está com '+qtdMusicas(c)+' de 5 músicas. Complete no app antes do culto.</p>';});
+  return {assunto:"Hoje você serve no louvor",html:emailBase("Você está na escala de hoje",corpo,link,nomeMin)};
+}
+function emailRepertorio(m,cultos,link,nomeMin,ultimo){
+  const n=cultos.length;
+  let corpo='<p style="margin:0 0 6px">Olá, '+escH(String(m.nome).split(/\s+/)[0])+'! '+(ultimo?'Este é o último lembrete: ':'')+
+    (n>1?'ainda falta completar o repertório destes cultos':'ainda falta completar o repertório deste culto')+' em que você é ministro:</p>'+
+    tabelaEmail(cultos.sort(porData).map(c=>linhaEmail(escH(dataBR(c.data))+(c.hora?' · '+escH(c.hora):'')+' — '+escH(c.titulo),qtdMusicas(c)?qtdMusicas(c)+' de 5 músicas lançadas':'Nenhuma música lançada ainda')))+
+    '<p style="margin:16px 0 0;color:#59627d">Ordem do repertório: Celebração, Exaltação, Rendição, Adoração e a música da oferta, cada uma com o link do YouTube.</p>';
+  return {assunto:(ultimo?"Último lembrete: ":"Lembrete: ")+"repertório pendente",html:emailBase("Repertório pendente",corpo,link,nomeMin)};
+}
+/* Roda uma vez por dia no servidor: lembrete do dia + lembretes de repertório (3 e 6 dias após o aviso da escala). */
+function rotinaDoDia(db,env){
+  db.avisos=db.avisos||[];
+  const hoje=env.hoje(), link=env.link(), nomeMin=env.nomeMin, enviados={hoje:0,repertorio:0}; let mudou=false;
+  (db.membros||[]).forEach(m=>{if(!m.email) return; const e=emailHoje(db,m,hoje,link,nomeMin); if(e){env.enviar(m.email,e.assunto,e.html);enviados.hoje++;}});
+  db.avisos.forEach(a=>{
+    if(!a.enviadoDia) return;
+    const dias=diasEntre(a.enviadoDia,hoje);
+    const etapa=(dias>=6&&!a.lembrete6)?2:(dias>=3&&!a.lembrete3)?1:0;
+    if(!etapa) return;
+    const por={};
+    (db.cultos||[]).filter(c=>String(c.data).startsWith(a.mes+"-")&&c.data>=hoje&&c.ministroId&&qtdMusicas(c)<5).forEach(c=>{(por[c.ministroId]=por[c.ministroId]||[]).push(c);});
+    Object.keys(por).forEach(id=>{const m=db.membros.find(x=>x.id===id); if(m&&m.email){const e=emailRepertorio(m,por[id],link,nomeMin,etapa===2); env.enviar(m.email,e.assunto,e.html); enviados.repertorio++;}});
+    if(etapa===2){a.lembrete6=hoje; if(!a.lembrete3) a.lembrete3=hoje;} else a.lembrete3=hoje;
+    mudou=true;
+  });
+  return {mudou:mudou,enviados:enviados};
+}
 function processar(db,req,env){
   db.limpeza=db.limpeza||[]; db.membros=db.membros||[]; db.eventos=db.eventos||[];
   const hashSenha=s=>env.hash("senha|"+s);
   const tokenDe=m=>m.usuario+"."+env.hash("tok|"+m.usuario+"|"+m.senhaHash);
-  const publico=m=>({id:m.id,nome:m.nome,usuario:m.usuario,lider:!!m.lider,ministro:!!m.ministro,cantor:!!m.cantor,musico:!!m.musico,foto:m.foto||""});
+  const publico=m=>({id:m.id,nome:m.nome,usuario:m.usuario,email:m.email||"",lider:!!m.lider,ministro:!!m.ministro,cantor:!!m.cantor,musico:!!m.musico,foto:m.foto||""});
   let eu=null;
   if(req.token){
     const t=String(req.token), i=t.lastIndexOf(".");
@@ -490,12 +584,37 @@ function processar(db,req,env){
       return {token:tokenDe(eu)};
     }
     case "listMembros": exigirLider(); return {membros:db.membros.map(publico)};
+    case "salvarEmail":{
+      exigirLogin();
+      const e=String(req.email||"").trim().toLowerCase();
+      if(e&&!EMAIL_RE.test(e)) throw new Error("Esse e-mail não parece válido. Confira e tente de novo.");
+      eu.email=e; return {eu:publico(eu)};
+    }
+    case "avisarEquipe":{
+      exigirLider();
+      const ano=Number(req.ano), mes=Number(req.mes);
+      if(!(ano>2000&&mes>=0&&mes<12)) throw new Error("Mês inválido.");
+      const chave=ano+"-"+String(mes+1).padStart(2,"0");
+      if(!db.cultos.some(c=>String(c.data).startsWith(chave+"-"))) throw new Error("Ainda não há cultos lançados neste mês.");
+      db.avisos=db.avisos||[];
+      const com=db.membros.filter(m=>m.email), semEmail=db.membros.filter(m=>!m.email).map(m=>m.nome);
+      if(!com.length) throw new Error("Nenhum membro tem e-mail cadastrado ainda.");
+      if(env.cota&&env.cota()<com.length) throw new Error("O limite diário de e-mails do Google acabou. Tente amanhã.");
+      com.forEach(m=>{const e=emailEscala(db,m,chave,env.link(),env.nomeMin); env.enviar(m.email,e.assunto,e.html);});
+      let a=db.avisos.find(x=>x.mes===chave);
+      if(!a){a={mes:chave,enviadoEm:"",enviadoDia:"",enviadoPor:"",lembrete3:"",lembrete6:""}; db.avisos.push(a);}
+      if(!a.enviadoDia) a.enviadoDia=env.hoje();
+      a.enviadoEm=new Date().toISOString(); a.enviadoPor=eu.nome;
+      return {enviados:com.length,semEmail:semEmail};
+    }
     case "saveMembro":{
       exigirLider();
       const m=req.membro||{}, nome=String(m.nome||"").trim(), senha=String(m.senha||"");
       const usuario=norm(m.usuario).replace(/\s+/g,".").replace(/[^a-z0-9._-]/g,"");
       if(!nome) throw new Error("Informe o nome.");
       if(!usuario) throw new Error("Informe o usuário (só letras, números e ponto).");
+      const email=String(m.email||"").trim().toLowerCase();
+      if(email&&!EMAIL_RE.test(email)) throw new Error("Esse e-mail não parece válido. Confira e tente de novo.");
       if(db.membros.some(x=>x.usuario===usuario&&x.id!==m.id)) throw new Error("O usuário “"+usuario+"” já existe. Escolha outro.");
       let foto=null;
       if(m.removerFoto) foto="";
@@ -512,7 +631,7 @@ function processar(db,req,env){
         if(senha.length<4) throw new Error("Defina uma senha com pelo menos 4 caracteres.");
         alvo={id:uid(),foto:""}; db.membros.push(alvo);
       }
-      alvo.nome=nome; alvo.usuario=usuario; alvo.ministro=!!m.ministro; alvo.lider=!!m.lider; alvo.cantor=!!m.cantor; alvo.musico=!!m.musico;
+      alvo.nome=nome; alvo.usuario=usuario; alvo.email=email; alvo.ministro=!!m.ministro; alvo.lider=!!m.lider; alvo.cantor=!!m.cantor; alvo.musico=!!m.musico;
       if(senha) alvo.senhaHash=hashSenha(senha);
       if(foto!==null) alvo.foto=foto;
       if(!db.membros.some(x=>x.lider)) throw new Error("É preciso ter pelo menos um líder.");
@@ -588,8 +707,10 @@ function processar(db,req,env){
 function hashDemo(t){let h1=0xdeadbeef,h2=0x41c6ce57;for(let i=0;i<t.length;i++){const ch=t.charCodeAt(i);h1=Math.imul(h1^ch,2654435761);h2=Math.imul(h2^ch,1597334677);}
   h1=Math.imul(h1^(h1>>>16),2246822507)^Math.imul(h2^(h2>>>13),3266489909);h2=Math.imul(h2^(h2>>>16),2246822507)^Math.imul(h1^(h1>>>13),3266489909);
   return (h2>>>0).toString(36)+(h1>>>0).toString(36);}
-const ENV_DEMO={hash:t=>hashDemo("demo-avivah|"+t)};
-const DEMO_KEY="louvor_demo_v7";
+const ENVIOS_DEMO=[];
+const ENV_DEMO={hash:t=>hashDemo("demo-avivah|"+t),enviar:(para,assunto)=>{ENVIOS_DEMO.push({para:para,assunto:assunto});},
+  hoje:()=>hojeStr(),link:()=>String(location.href).split("#")[0].split("?")[0],nomeMin:"Ministério Avivah"};
+const DEMO_KEY="louvor_demo_v8";
 let demoMem=null;
 function seed(){
   const now=new Date(), y=now.getFullYear(), m=now.getMonth();
@@ -600,6 +721,7 @@ function seed(){
   const musicos=["Daniel","Davidson","Felipe","Gabriel","Carlos"];
   ["Kelly","Nathalia","Daniel","Davidson","Felipe","Michelle","Raquel","Gabriel","Carlos","Jacqueline","Débora","Yasmin","Yara","Marta"].forEach((n,i)=>
     membros.push({id:"p"+i,nome:n,usuario:norm(n),lider:false,ministro:false,cantor:!musicos.includes(n),musico:musicos.includes(n),senhaHash:h("1234"),foto:""}));
+  membros.forEach((m,i)=>{if(i<16) m.email=m.usuario+"@exemplo.com";});
   const F=(backing,guitarra,bateria,teclado,baixo,violao,torre,feedback)=>({backing,guitarra,bateria,teclado,baixo,violao,torre,feedback});
   const escala=[
     ["m1",F("Kelly, Nathalia","Daniel","Davidson","Pablo","Felipe","","Michelle","Pablo"),["#1b2f6b","#ffffff"]],
@@ -638,7 +760,7 @@ function seed(){
     {id:"e2",data:dia(17),hora:"15:00",titulo:"Ensaio geral",tipo:"ensaio",local:"Templo",descricao:"Músicas novas do mês. Trazer os instrumentos."},
     {id:"e3",data:dia(31),hora:"19:30",titulo:"Confraternização do louvor",tipo:"confra",local:"Casa da Lorena",descricao:"Cada um leva um prato de salgado ou doce."}
   ];
-  return JSON.parse(JSON.stringify({membros:membros,cultos:cultos,limpeza:limpeza,eventos:eventos}));
+  return JSON.parse(JSON.stringify({membros:membros,cultos:cultos,limpeza:limpeza,eventos:eventos,avisos:[]}));
 }
 function demoDb(){
   if(demoMem) return demoMem;
@@ -688,7 +810,7 @@ async function chamar(action,payload){
 /* ================= Estado ================= */
 const agora=new Date();
 const CACHE_KEY=CONFIG.API_URL?"louvor_cache_v1":"louvor_cache_demo";
-const S={cultos:[],membros:[],limpeza:[],eventos:[],ano:agora.getFullYear(),mes:agora.getMonth(),aba:"escala",
+const S={cultos:[],membros:[],limpeza:[],eventos:[],avisos:[],ano:agora.getFullYear(),mes:agora.getMonth(),aba:"escala",
   token:lsGet("louvor_token"),eu:lerJsonLocal("louvor_eu",null),carregando:true,erro:null,membrosBase:[],frescoEm:0};
 if(!S.token) S.eu=null;
 function lerJsonLocal(k,padrao){try{const v=lsGet(k);return v?JSON.parse(v):padrao;}catch(e){return padrao;}}
@@ -696,7 +818,7 @@ let FOTOS=lerJsonLocal("louvor_fotos",{}), buscandoFotos=false;
 function mesclarFotos(){S.membros=S.membrosBase.map(m=>Object.assign({},m,{foto:(FOTOS[m.id]&&FOTOS[m.id].v===m.fotoV)?FOTOS[m.id].foto:""}));}
 function aplicarDados(d,semGuardar){
   if(!d) return;
-  S.membrosBase=d.membros||[]; S.cultos=d.cultos||[]; S.limpeza=d.limpeza||[]; S.eventos=d.eventos||[];
+  S.membrosBase=d.membros||[]; S.cultos=d.cultos||[]; S.limpeza=d.limpeza||[]; S.eventos=d.eventos||[]; S.avisos=d.avisos||[];
   mesclarFotos(); S.erro=null; S.carregando=false;
   if(!semGuardar) lsSet(CACHE_KEY,JSON.stringify(d));
   atualizarFotos();
@@ -785,7 +907,7 @@ function render(){
     el.innerHTML='<div class="vazio"><p class="vazio-t">Nenhum culto escalado em '+MESES[S.mes].toLowerCase()+'</p><p>'+(ehLider()?'Toque em “Novo culto” para lançar a escala.':'A escala deste mês ainda não foi lançada.')+'</p></div>';
     return;
   }
-  el.innerHTML=S.aba==="escala"?'<div class="grade">'+lista.map(cardCulto).join("")+'</div>':viewRepertorios(lista);
+  el.innerHTML=S.aba==="escala"?(ehLider()?barraAviso():'')+'<div class="grade">'+lista.map(cardCulto).join("")+'</div>':viewRepertorios(lista);
 }
 function cardCulto(c){
   const d=parseData(c.data), f=c.funcoes||{}, m=membro(c.ministroId);
@@ -897,6 +1019,37 @@ function viewAgenda(){
     (evs.length?'<p class="ag-sec">Eventos do ministério '+quando+'</p><div class="ag-list">'+evs.map(linhaEv).join("")+'</div>':'');
 }
 
+function chaveMes(){return S.ano+"-"+pad(S.mes+1);}
+function barraAviso(){
+  const a=S.avisos.find(x=>x.mes===chaveMes());
+  return '<div class="aviso-bar"><span class="aviso-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg></span>'+
+    '<span class="aviso-txt"><strong>'+(a?'Equipe avisada':'Escala de '+MESES[S.mes].toLowerCase()+' pronta?')+'</strong>'+
+    (a?'Enviado '+dataHoraCurta(a.enviadoEm)+(a.enviadoPor?' por '+esc(a.enviadoPor):'')+'. Ministros com repertório incompleto recebem lembretes 3 e 6 dias depois.':'Avise a equipe por e-mail: cada um recebe os próprios compromissos do mês.')+'</span>'+
+    '<button class="btn sm'+(a?' ghost':'')+'" data-act="avisar">'+(a?'Reenviar':'Avisar a equipe')+'</button></div>';
+}
+async function telaAvisar(){
+  let lista;
+  try{lista=(await chamar("listMembros",{})).membros;}catch(err){toast(err.message);return;}
+  const com=lista.filter(m=>m.email), sem=lista.filter(m=>!m.email), a=S.avisos.find(x=>x.mes===chaveMes());
+  const eu=S.membros.find(m=>m.id===S.eu.id)||S.eu;
+  const previa=emailEscala({membros:S.membros,cultos:S.cultos,limpeza:S.limpeza,eventos:S.eventos},eu,chaveMes(),"#",CONFIG.NOME);
+  abrirSheet('<div class="eyebrow">Avisos por e-mail</div><h2 class="sh-title" id="sheetTitulo">Avisar a equipe · '+MESES[S.mes]+'</h2>'+
+    '<p class="lead">Cada membro recebe um e-mail com os compromissos dele em '+MESES[S.mes].toLowerCase()+', os eventos do ministério e o link do app. Ministros com repertório incompleto recebem lembretes 3 e 6 dias depois deste envio, e todos recebem um lembrete às 7h no dia em que servem.</p>'+
+    (a?'<p class="nota" style="margin-top:0">Já enviado '+dataHoraCurta(a.enviadoEm)+'. Reenviar manda a versão atual da escala para todos; os lembretes continuam contando a partir do primeiro envio.</p>':'')+
+    '<div class="sec"><h3>'+com.length+(com.length===1?' pessoa vai receber':' pessoas vão receber')+'</h3>'+
+    (sem.length?'<p class="hint" style="margin:0 0 6px">Sem e-mail cadastrado ('+sem.length+'): '+sem.map(m=>esc(m.nome)).join(", ")+'. Cadastre em “Membros” ou peça para a pessoa preencher em “Minha conta”.</p>':'<p class="hint" style="margin:0">Todos os membros têm e-mail cadastrado.</p>')+'</div>'+
+    '<details class="previa"><summary>Ver como fica o seu e-mail</summary><div class="previa-box">'+previa.html+'</div></details>'+
+    '<p class="err" id="errAvisar"></p><div class="actions"><button class="btn" id="btnEnviarAviso" type="button"'+(com.length?'':' disabled')+'>'+(a?'Reenviar e-mails':'Enviar e-mails')+'</button><button class="btn ghost" type="button" data-act="fechar">Cancelar</button></div>');
+  $("#btnEnviarAviso").onclick=async()=>{
+    const btn=$("#btnEnviarAviso"); ocupado(btn,"Enviando…");
+    try{
+      const r=await chamar("avisarEquipe",{ano:S.ano,mes:S.mes,linkApp:String(location.href).split("#")[0].split("?")[0]});
+      fecharSheet(); render();
+      toast((CONFIG.API_URL?"":"Demonstração: nada foi enviado de verdade. ")+"E-mails para "+r.enviados+(r.enviados===1?" pessoa":" pessoas"));
+    }catch(err){$("#errAvisar").textContent=err.message;livre(btn);}
+  };
+}
+
 /* ================= Painel ================= */
 let ultimoFoco=null;
 function abrirSheet(html){
@@ -961,12 +1114,23 @@ function telaConta(){
   const eu=S.eu; if(!eu) return telaLogin();
   const m=membro(eu.id)||eu;
   abrirSheet('<div class="det-head">'+avatar(m)+'<div><div class="eyebrow">Minha conta</div><h2 class="sh-title" id="sheetTitulo">'+esc(eu.nome)+'</h2><div class="cm"><span class="usr">@'+esc(eu.usuario)+'</span>'+badges(eu)+'</div></div></div>'+
+    '<form id="fEmail" class="form sec"><h3>E-mail para avisos</h3>'+
+    '<p class="hint" style="margin:0">Você recebe a escala do mês e um lembrete no dia em que serve.</p>'+
+    '<label for="eEmail">Seu e-mail</label><input id="eEmail" type="email" inputmode="email" autocomplete="email" autocapitalize="none" value="'+esc(eu.email||"")+'" placeholder="nome@gmail.com">'+
+    '<p class="err" id="errEmail"></p><div class="actions" style="margin-top:8px"><button class="btn ghost" type="submit">Salvar e-mail</button></div></form>'+
     '<form id="fSenha" class="form sec"><h3>Trocar senha</h3>'+
     '<label for="sAtual">Senha atual</label><input id="sAtual" type="password" autocomplete="current-password" required>'+
     '<label for="sNova">Nova senha</label><input id="sNova" type="password" autocomplete="new-password" minlength="4" required>'+
     '<label for="sConf">Repita a nova senha</label><input id="sConf" type="password" autocomplete="new-password" required>'+
     '<p class="err" id="errSenha"></p><div class="actions" style="margin-top:8px"><button class="btn" type="submit">Salvar nova senha</button></div></form>'+
     '<div class="actions lider-actions"><button class="btn ghost danger" data-act="sair">Sair da conta</button></div>');
+  $("#fEmail").onsubmit=async e=>{
+    e.preventDefault();
+    const btn=e.submitter||$("#fEmail button[type=submit]");
+    ocupado(btn,"Salvando…");
+    try{const r=await chamar("salvarEmail",{email:$("#eEmail").value});S.eu=r.eu;lsSet("louvor_eu",JSON.stringify(r.eu));livre(btn);$("#errEmail").textContent="";toast(r.eu.email?"E-mail salvo":"E-mail removido");}
+    catch(err){$("#errEmail").textContent=err.message;livre(btn);}
+  };
   $("#fSenha").onsubmit=async e=>{
     e.preventDefault();
     const btn=e.submitter||$("#fSenha button[type=submit]");
@@ -1049,12 +1213,14 @@ function dataHoraCurta(iso){const d=new Date(iso);return isNaN(d)?"":pad(d.getDa
 function secFeedback(c){
   const passou=c.data<=hojeStr(), fb=c.feedback;
   const mostraBotao=passou&&(!S.eu||podeFb(c));
+  const quemFb=String((c.funcoes||{}).feedback||"").trim();
   return '<div class="sec"><div class="sec-h"><h3>Feedback do culto</h3>'+(fb?'<span class="pill fb">Registrado</span>':'')+'</div>'+
     (fb?(fb.autor||fb.em?'<p class="cm" style="margin:0;color:var(--muted);font-size:14px">'+(fb.autor?'Por <strong>'+esc(fb.autor)+'</strong>':'Registrado')+(fb.em?' · '+dataHoraCurta(fb.em):'')+'</p>':'')+
       (fb.bem?'<div class="fb-b ok"><h4>O que foi bem</h4><p>'+esc(fb.bem)+'</p></div>':'')+
       (fb.melhorar?'<div class="fb-b mel"><h4>O que melhorar</h4><p>'+esc(fb.melhorar)+'</p></div>':'')
-    :'<p class="nd" style="margin:0">'+(passou?'Ainda não registrado.':'Fica disponível depois do culto.')+'</p>')+
-    (mostraBotao?'<div class="actions"><button class="btn ghost" data-act="editarFeedback" data-id="'+esc(c.id)+'">'+(fb?'Editar feedback':'Registrar feedback')+'</button></div>':'')+'</div>';
+    :'<p class="nd" style="margin:0">'+(passou?'Ainda não registrado.':'Fica disponível a partir de '+dataCurta(c.data).replace(/^\S+ /,"")+', dia do culto.')+'</p>')+
+    (mostraBotao?'<div class="actions"><button class="btn ghost" data-act="editarFeedback" data-id="'+esc(c.id)+'">'+(fb?'Editar feedback':'Registrar feedback')+'</button></div>':'')+
+    (passou&&S.eu&&!podeFb(c)?'<p class="nota">Quem registra o feedback deste culto: '+(quemFb?'<strong>'+esc(quemFb)+'</strong> (escalado no Feedback), ':'')+'o ministro '+esc(nomeMinistro(c.ministroId))+' ou um líder.</p>':'')+'</div>';
 }
 function editarFeedback(id){
   const c=S.cultos.find(x=>x.id===id); if(!c) return;
@@ -1244,6 +1410,7 @@ async function telaMembros(editId){
       (ed&&ed.foto?'<button class="btn ghost danger sm" type="button" id="memSemFoto">Remover foto</button>':'')+'</div>'+
     '<label for="memNome">Nome (como aparece na escala)</label><input id="memNome" value="'+esc(ed?ed.nome:"")+'" placeholder="Ex.: Lorena" autocomplete="off" required>'+
     '<label for="memUsuario">Usuário</label><input id="memUsuario" value="'+esc(ed?ed.usuario:"")+'" placeholder="Ex.: lorena" autocapitalize="none" autocorrect="off" spellcheck="false" autocomplete="off" required>'+
+    '<label for="memEmail">E-mail para avisos (opcional)</label><input id="memEmail" type="email" inputmode="email" autocomplete="off" autocapitalize="none" value="'+esc(ed?ed.email:"")+'" placeholder="nome@gmail.com">'+
     '<label for="memSenha">'+(ed?'Nova senha':'Senha inicial')+'</label><input id="memSenha" type="text" autocomplete="off" placeholder="'+(ed?'Deixe em branco para manter a atual':'Mínimo de 4 caracteres')+'">'+
     '<div class="lbl">Na equipe</div>'+
     '<label class="check" for="memCant"><input type="checkbox" id="memCant"'+(ed&&ed.cantor?' checked':'')+'><span>Cantor(a)<small>Canta no backing. Aparece como sugestão no campo Backing.</small></span></label>'+
@@ -1254,7 +1421,7 @@ async function telaMembros(editId){
     '<p class="err" id="errMem"></p><div class="actions"><button class="btn" type="submit">'+(ed?'Salvar alterações':'Adicionar membro')+'</button>'+(ed?'<button class="btn ghost" type="button" data-act="membros">Cancelar</button>':'')+'</div></fieldset></form>'+
     '<div class="sec" style="margin-top:14px"><h3>'+lista.length+(lista.length===1?' membro':' membros')+' · '+lista.filter(m=>m.cantor).length+' cantores · '+lista.filter(m=>m.musico).length+' músicos</h3>'+
     '<div class="filtros" role="group" aria-label="Filtrar membros">'+[["todos","Todos"],["cantor","Cantores"],["musico","Músicos"],["ministro","Ministros"],["lider","Líderes"]].map(x=>'<button type="button" data-filtro="'+x[0]+'" aria-pressed="'+(filtroMembros===x[0])+'">'+x[1]+'</button>').join("")+'</div>'+
-    '<ul class="min-list">'+lista.filter(m=>filtroMembros==="todos"||m[filtroMembros]).map(m=>'<li>'+avatar(m)+'<span class="nm">'+esc(m.nome)+badges(m)+'<small class="usr">@'+esc(m.usuario)+'</small></span>'+
+    '<ul class="min-list">'+lista.filter(m=>filtroMembros==="todos"||m[filtroMembros]).map(m=>'<li>'+avatar(m)+'<span class="nm">'+esc(m.nome)+badges(m)+'<small class="usr">@'+esc(m.usuario)+' · '+(m.email?esc(m.email):'<span style="color:var(--warn)">sem e-mail</span>')+'</small></span>'+
       '<button class="btn ghost sm" data-act="editMembro" data-id="'+esc(m.id)+'">Editar</button>'+
       (S.eu&&m.id===S.eu.id?'':'<button class="btn ghost danger sm" data-act="delMembro" data-id="'+esc(m.id)+'">Excluir</button>')+'</li>').join("")+'</ul></div>');
   $("#sheetBody").querySelectorAll("[data-filtro]").forEach(b=>b.onclick=()=>{filtroMembros=b.dataset.filtro;telaMembros(editId||"__lista");});
@@ -1273,7 +1440,7 @@ async function telaMembros(editId){
     ocupado(btn,"Salvando…");
     try{
       await chamar("saveMembro",{membro:{id:ed?ed.id:"",nome:$("#memNome").value,usuario:$("#memUsuario").value,senha:$("#memSenha").value,
-        ministro:$("#memMin").checked,lider:$("#memLider").checked,cantor:$("#memCant").checked,musico:$("#memMus").checked,foto:novaFoto||"",removerFoto:remover}});
+        email:$("#memEmail").value,ministro:$("#memMin").checked,lider:$("#memLider").checked,cantor:$("#memCant").checked,musico:$("#memMus").checked,foto:novaFoto||"",removerFoto:remover}});
       membrosCompletos=[]; await carregar();
       if(ed&&S.eu&&ed.id===S.eu.id){try{const r=await chamar("me",{});S.eu=r.eu;lsSet("louvor_eu",JSON.stringify(r.eu));}catch(x){} render();}
       toast(ed?"Membro atualizado":"Membro adicionado"); telaMembros();
@@ -1322,6 +1489,7 @@ document.addEventListener("click",async e=>{
     case "sair": sairConta(); fecharSheet(); toast("Você saiu da conta"); break;
     case "membros": membrosCompletos=[]; telaMembros(); break;
     case "editMembro": telaMembros(id); break;
+    case "avisar": telaAvisar(); break;
     case "novo": S.aba==="limpeza"?formLimpeza():S.aba==="eventos"?formEvento():formCulto(); break;
     case "editEvento": formEvento(S.eventos.find(x=>x.id===id)); break;
     case "copiarEventos": {
@@ -1377,6 +1545,23 @@ async function restaurarSessao(){
 }
 document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible"&&CONFIG.API_URL&&$("#sheet").hidden) carregar();});
 
+/* ================= Versão nova do site ================= */
+/* Busca o próprio index.html sem cache; se a versão publicada for outra, recarrega uma única vez. */
+async function verificarVersao(){
+  if(!/^https?:$/.test(location.protocol)) return;
+  try{
+    const r=await fetch(location.pathname+"?checar="+Date.now(),{cache:"no-store"});
+    if(!r.ok) return;
+    const m=(await r.text()).match(/VERSAO_APP\s*=\s*"([^"]+)"/);
+    if(!m||m[1]===VERSAO_APP) return;
+    let ja=null; try{ja=sessionStorage.getItem("louvor_versao_tentada");}catch(e){}
+    if(ja===m[1]) return;
+    try{sessionStorage.setItem("louvor_versao_tentada",m[1]);}catch(e){}
+    toast("Atualizando para a versão nova…");
+    setTimeout(()=>location.replace(location.pathname+"?v="+encodeURIComponent(m[1])+location.hash),700);
+  }catch(e){}
+}
+
 /* ================= Início ================= */
 $("#nomeMin").innerHTML=esc(CONFIG.NOME)+"<small>Louvor</small>";
 $("#demoBanner").hidden=!!CONFIG.API_URL;
@@ -1386,6 +1571,7 @@ const inicial=lerJsonLocal(CACHE_KEY,null);
 if(inicial){aplicarDados(inicial,true);}
 if(S.eu) S.aba="agenda";
 prepararLogin();
+verificarVersao();
 render(); carregar(); restaurarSessao();
 if(!S.token&&lsGet("louvor_visitante")!=="1") telaLogin();
 })();
