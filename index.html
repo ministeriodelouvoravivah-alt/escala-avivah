@@ -483,7 +483,7 @@ const CONFIG = {
   API_URL: "https://script.google.com/macros/s/AKfycbxrhX4edbA7aVQrjiIY4e7g8OeeX_7A9HvKmPRTUlxskJDYWYRQ8M6rKq8xc8HBBHF8/exec",
   NOME: "Ministério Avivah"
 };
-const VERSAO_APP = "2026.10.21-7"; // muda a cada versão enviada; não precisa editar
+const VERSAO_APP = "2026.10.21-9"; // muda a cada versão enviada; não precisa editar
 /* ======================================================== */
 
 const MESES=["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
@@ -733,6 +733,7 @@ function processar(db,req,env){
       alvo.presencas=alvo.presencas||{};
       const antes=alvo.presencas[eu.id], r=req.resposta;
       if(r!=="ok"&&r!=="nao"){delete alvo.presencas[eu.id]; return {};}
+      if(r==="nao"&&String(req.motivo||"").trim().length<3) throw new Error("Nos conte o motivo da ausência, é importante.");
       alvo.presencas[eu.id]={s:r,motivo:r==="nao"?String(req.motivo||"").trim().slice(0,200):"",em:new Date().toISOString()};
       if(r==="nao"&&!(antes&&antes.s==="nao")){
         const e=emailRecusa(eu,alvo,tipo,funcoes.join(", "),alvo.presencas[eu.id].motivo,env.link(),env.nomeMin);
@@ -1501,9 +1502,11 @@ function telaRecusa(tipo,id){
   const obj=tipo==="culto"?S.cultos.find(x=>x.id===id):S.limpeza.find(x=>x.id===id); if(!obj) return;
   abrirSheet('<div class="eyebrow">'+esc(tipo==="culto"?obj.titulo:"Escala de limpeza")+' · '+dataCurta(obj.data)+'</div><h2 class="sh-title" id="sheetTitulo">Não vai conseguir?</h2>'+
     '<p class="lead">Os líderes recebem um aviso na hora para escolher quem vai substituir.</p>'+
-    '<form id="fRecusa" class="form"><label for="recMotivo">Motivo (opcional, só os líderes veem)</label><textarea id="recMotivo" placeholder="Ex.: vou estar viajando nesse fim de semana."></textarea>'+
+    '<form id="fRecusa" class="form" novalidate><label for="recMotivo">Motivo (obrigatório, só os líderes veem)</label><textarea id="recMotivo" required placeholder="Ex.: vou estar viajando nesse fim de semana."></textarea><p class="err" id="errRecusa"></p>'+
     '<div class="actions"><button class="btn nao-cheio" type="submit">Avisar os líderes</button><button class="btn ghost" type="button" data-act="fechar">Voltar</button></div></form>');
-  $("#fRecusa").onsubmit=e=>{e.preventDefault(); responder(tipo,id,"nao",$("#recMotivo").value,e.submitter||$("#fRecusa button[type=submit]"));};
+  $("#fRecusa").onsubmit=e=>{e.preventDefault();
+    if($("#recMotivo").value.trim().length<3){$("#errRecusa").textContent="Nos conte o motivo da ausência, é importante."; $("#recMotivo").focus(); return;}
+    responder(tipo,id,"nao",$("#recMotivo").value,e.submitter||$("#fRecusa button[type=submit]"));};
 }
 
 /* ----- Indisponibilidades ----- */
