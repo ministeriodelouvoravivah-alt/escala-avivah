@@ -243,6 +243,7 @@ main{display:flex;flex-direction:column;gap:14px}
 .badge.lider{background:var(--flame-soft);color:var(--flame)}
 .badge.min{background:var(--brand-soft);color:var(--brand)}
 .badge.cant{background:var(--sky-soft);color:var(--sky)}
+.badge.dc{background:var(--flame-soft);color:#a8480f}
 .badge.mus{background:var(--ok-soft);color:var(--ok)}
 .filtros{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px}
 .filtros button{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:5px 12px;font-size:13px;font-weight:600;color:var(--muted)}
@@ -482,7 +483,7 @@ const CONFIG = {
   API_URL: "https://script.google.com/macros/s/AKfycbxrhX4edbA7aVQrjiIY4e7g8OeeX_7A9HvKmPRTUlxskJDYWYRQ8M6rKq8xc8HBBHF8/exec",
   NOME: "Ministério Avivah"
 };
-const VERSAO_APP = "2026.10.21-6"; // muda a cada versão enviada; não precisa editar
+const VERSAO_APP = "2026.10.21-7"; // muda a cada versão enviada; não precisa editar
 /* ======================================================== */
 
 const MESES=["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
@@ -544,7 +545,7 @@ function normalizarFuncoes(o){
 function normalizarDresscode(l){
   return (Array.isArray(l)?l:[]).map(x=>String(x).trim().toLowerCase()).filter(x=>HEX_RE.test(x)).filter((x,i,a)=>a.indexOf(x)===i).slice(0,6);
 }
-const TABELAS_POR_ACAO={salvarIndisp:["Membros"],responderPresenca:["Cultos","Limpeza"],salvarEmail:["Membros"],avisarEquipe:["Avisos"],trocarSenha:["Membros"],saveMembro:["Membros"],deleteMembro:["Membros"],saveCulto:["Cultos"],deleteCulto:["Cultos"],
+const TABELAS_POR_ACAO={salvarDresscode:["Cultos"],salvarIndisp:["Membros"],responderPresenca:["Cultos","Limpeza"],salvarEmail:["Membros"],avisarEquipe:["Avisos"],trocarSenha:["Membros"],saveMembro:["Membros"],deleteMembro:["Membros"],saveCulto:["Cultos"],deleteCulto:["Cultos"],
   saveRepertorio:["Cultos"],saveFeedback:["Cultos"],saveLimpeza:["Limpeza"],deleteLimpeza:["Limpeza"],saveEvento:["Eventos"],deleteEvento:["Eventos"]};
 function fotoVersao(f){f=String(f||"");return f?f.length.toString(36)+f.slice(-12):"";}
 function dadosPublicos(db){
@@ -668,7 +669,7 @@ function processar(db,req,env){
   db.limpeza=db.limpeza||[]; db.membros=db.membros||[]; db.eventos=db.eventos||[];
   const hashSenha=s=>env.hash("senha|"+s);
   const tokenDe=m=>m.usuario+"."+env.hash("tok|"+m.usuario+"|"+m.senhaHash);
-  const publico=m=>({id:m.id,nome:m.nome,usuario:m.usuario,email:m.email||"",indisp:m.indisp||[],lider:!!m.lider,ministro:!!m.ministro,cantor:!!m.cantor,musico:!!m.musico,foto:m.foto||""});
+  const publico=m=>({id:m.id,nome:m.nome,usuario:m.usuario,email:m.email||"",indisp:m.indisp||[],permDresscode:!!m.permDresscode,lider:!!m.lider,ministro:!!m.ministro,cantor:!!m.cantor,musico:!!m.musico,foto:m.foto||""});
   let eu=null;
   if(req.token){
     const t=String(req.token), i=t.lastIndexOf(".");
@@ -695,6 +696,13 @@ function processar(db,req,env){
       return {token:tokenDe(eu)};
     }
     case "listMembros": exigirLider(); return {membros:db.membros.map(publico)};
+    case "salvarDresscode":{
+      exigirLogin();
+      if(!(eu.lider||eu.permDresscode)) throw new Error("Você não tem permissão para definir o dresscode.");
+      const c=acharCulto(req.cultoId);
+      c.dresscode=normalizarDresscode(req.dresscode); c.atualizadoEm=new Date().toISOString();
+      return {};
+    }
     case "salvarIndisp":{
       exigirLogin();
       const vistos={}, out=[];
@@ -779,7 +787,7 @@ function processar(db,req,env){
         if(senha.length<4) throw new Error("Defina uma senha com pelo menos 4 caracteres.");
         alvo={id:uid(),foto:""}; db.membros.push(alvo);
       }
-      alvo.nome=nome; alvo.usuario=usuario; alvo.email=email; alvo.ministro=!!m.ministro; alvo.lider=!!m.lider; alvo.cantor=!!m.cantor; alvo.musico=!!m.musico;
+      alvo.nome=nome; alvo.usuario=usuario; alvo.email=email; alvo.ministro=!!m.ministro; alvo.lider=!!m.lider; alvo.cantor=!!m.cantor; alvo.musico=!!m.musico; alvo.permDresscode=!!m.permDresscode;
       if(senha) alvo.senhaHash=hashSenha(senha);
       if(foto!==null) alvo.foto=foto;
       if(!db.membros.some(x=>x.lider)) throw new Error("É preciso ter pelo menos um líder.");
@@ -1007,7 +1015,7 @@ function avatar(m,extra){
   if(m&&m.foto&&/^data:image\//.test(m.foto)) return '<img class="'+cls+'" src="'+esc(m.foto)+'" alt="">';
   return '<span class="'+cls+' ini" aria-hidden="true">'+esc(m?iniciais(m.nome):"?")+'</span>';
 }
-function badges(m){return '<span class="badges">'+(m.lider?'<span class="badge lider">Líder</span>':'')+(m.ministro?'<span class="badge min">Ministro</span>':'')+(m.cantor?'<span class="badge cant">Cantor</span>':'')+(m.musico?'<span class="badge mus">Músico</span>':'')+'</span>';}
+function badges(m){return '<span class="badges">'+(m.lider?'<span class="badge lider">Líder</span>':'')+(m.ministro?'<span class="badge min">Ministro</span>':'')+(m.cantor?'<span class="badge cant">Cantor</span>':'')+(m.musico?'<span class="badge mus">Músico</span>':'')+(m.permDresscode&&!m.lider?'<span class="badge dc">Dresscode</span>':'')+'</span>';}
 function dots(lista){
   const l=normalizarDresscode(lista); if(!l.length) return "";
   const nomes=esc(l.map(nomeCor).join(", "));
@@ -1384,6 +1392,31 @@ function secPresenca(c){
     '<ul class="pres-list">'+linhas+'</ul>'+
     (ehLider()&&k.nao?'<div class="actions" style="margin-top:8px"><button class="btn" data-act="editarCulto" data-id="'+esc(c.id)+'">Escolher substituto</button></div>':'')+'</div>';
 }
+const podeDresscode=()=>!!(S.eu&&(S.eu.lider||S.eu.permDresscode));
+function telaDresscode(id){
+  const c=S.cultos.find(x=>x.id===id); if(!c) return;
+  let dc=normalizarDresscode(c.dresscode);
+  abrirSheet('<div class="eyebrow">'+esc(c.titulo)+' · '+dataCurta(c.data)+'</div><h2 class="sh-title" id="sheetTitulo">Dresscode</h2>'+
+    '<p class="lead">Toque em quantas cores quiser (até 6), na ordem que preferir. Toque de novo para tirar.</p>'+
+    '<form id="fDc" class="form"><p class="hint" id="dcCont2" style="font-weight:700;color:var(--brand)"></p><div class="dc-sel" id="dcSel2"></div><div class="dc-presets" id="dcPresets2"></div>'+
+    '<label class="dc-outra" for="dcCustom2"><input type="color" id="dcCustom2" value="#1b2f6b">Adicionar outra cor</label>'+
+    '<p class="err" id="errDc"></p><div class="actions"><button class="btn" type="submit">Salvar dresscode</button><button class="btn ghost" type="button" data-act="abrir" data-id="'+esc(c.id)+'">Cancelar</button></div></form>');
+  const pintar=()=>{
+    $("#dcCont2").textContent=dc.length?dc.length+" de 6 cores escolhidas":"Nenhuma cor escolhida";
+    $("#dcSel2").innerHTML=dc.length?dc.map(h=>'<span class="dc-chip"><span class="dot" style="background:'+h+'"></span>'+esc(nomeCor(h))+'<button type="button" data-dc-del="'+h+'" aria-label="Remover '+esc(nomeCor(h))+'">×</button></span>').join(""):'<span class="hint">Sem dresscode</span>';
+    $("#dcPresets2").innerHTML=CORES.map(x=>'<button type="button" data-dc="'+x[0]+'" style="background:'+x[0]+'" title="'+x[1]+'" aria-label="'+x[1]+'" aria-pressed="'+(dc.includes(x[0])?"true":"false")+'"></button>').join("");
+  };
+  const alternar=h=>{h=h.toLowerCase(); if(dc.includes(h)) dc=dc.filter(x=>x!==h); else if(dc.length<6) dc.push(h); else toast("Máximo de 6 cores"); pintar();};
+  pintar();
+  $("#fDc").addEventListener("click",e=>{const a=e.target.closest("[data-dc]"), rm=e.target.closest("[data-dc-del]"); if(a) alternar(a.dataset.dc); if(rm) alternar(rm.dataset.dcDel);});
+  $("#dcCustom2").addEventListener("change",e=>{const h=e.target.value.toLowerCase(); if(!dc.includes(h)) alternar(h);});
+  $("#fDc").onsubmit=async e=>{
+    e.preventDefault();
+    const btn=e.submitter||$("#fDc button[type=submit]"); ocupado(btn,"Salvando…");
+    try{await chamar("salvarDresscode",{cultoId:c.id,dresscode:dc});await carregar();toast("Dresscode salvo");abrirCulto(c.id);}
+    catch(err){$("#errDc").textContent=err.message;livre(btn);}
+  };
+}
 function abrirCulto(id){
   const c=S.cultos.find(x=>x.id===id); if(!c){fecharSheet();return;}
   const d=parseData(c.data), n=preenchidas(c), ms=c.musicas||[], f=c.funcoes||{}, dc=normalizarDresscode(c.dresscode), m=membro(c.ministroId);
@@ -1393,7 +1426,8 @@ function abrirCulto(id){
     secAlertas(c)+
     '<div class="det-head">'+avatar(m)+'<div><div class="eyebrow">'+SEM_L[d.getDay()]+', '+d.getDate()+' de '+MESES[d.getMonth()].toLowerCase()+(c.hora?' · '+esc(c.hora):'')+'</div>'+
       '<h2 class="sh-title" id="sheetTitulo">'+esc(c.titulo)+'</h2><div class="cm">Ministro: <strong>'+esc(nomeMinistro(c.ministroId))+'</strong></div></div></div>'+
-    (dc.length?'<div class="sec"><h3>Dresscode</h3><div class="dc-list">'+dc.map(h=>'<span class="dc-item"><span class="dot" style="background:'+h+'"></span>'+esc(nomeCor(h))+'</span>').join("")+'</div></div>':'')+
+    ((dc.length||podeDresscode())?'<div class="sec"><div class="sec-h"><h3>Dresscode</h3>'+(podeDresscode()?'<button type="button" class="btn ghost sm" data-act="dresscode" data-id="'+esc(c.id)+'">'+(dc.length?'Editar':'Definir')+'</button>':'')+'</div>'+
+      (dc.length?'<div class="dc-list">'+dc.map(h=>'<span class="dc-item"><span class="dot" style="background:'+h+'"></span>'+esc(nomeCor(h))+'</span>').join("")+'</div>':'<p class="nd" style="margin:0">Ainda sem dresscode.</p>')+'</div>':'')+
     '<div class="sec"><h3>Equipe</h3>'+(temF?'<dl class="facts">'+FUNCOES.map(x=>'<div><dt>'+x[1]+'</dt><dd>'+(f[x[0]]?esc(f[x[0]]):'<span class="nd">–</span>')+'</dd></div>').join("")+'</dl>'
       :(c.equipe?'<p style="white-space:pre-line;margin:0">'+esc(c.equipe)+'</p>':'<p class="nd" style="margin:0">Equipe a definir.</p>'))+'</div>'+
     (c.obs?'<div class="sec"><h3>Avisos</h3><p style="margin:0;white-space:pre-line">'+esc(c.obs)+'</p></div>':'')+
@@ -1762,6 +1796,7 @@ async function telaMembros(editId){
     '<label class="check" for="memMus"><input type="checkbox" id="memMus"'+(ed&&ed.musico?' checked':'')+'><span>Músico(a)<small>Toca um instrumento. Aparece como sugestão nos campos de instrumentos.</small></span></label>'+
     '<div class="lbl">Permissões</div>'+
     '<label class="check" for="memMin"><input type="checkbox" id="memMin"'+(ed&&ed.ministro?' checked':'')+'><span>Ministro<small>Pode ser escalado como cantor e lançar o repertório do culto.</small></span></label>'+
+    '<label class="check" for="memDc"><input type="checkbox" id="memDc"'+(ed&&ed.permDresscode?' checked':'')+'><span>Dresscode<small>Pode definir o dresscode dos cultos, sem mexer no resto da escala. Líderes já podem.</small></span></label>'+
     '<label class="check" for="memLider"><input type="checkbox" id="memLider"'+(ed&&ed.lider?' checked':'')+'><span>Líder<small>Monta a escala, a limpeza e cadastra membros.</small></span></label>'+
     '<p class="err" id="errMem"></p><div class="actions"><button class="btn" type="submit">'+(ed?'Salvar alterações':'Adicionar membro')+'</button>'+(ed?'<button class="btn ghost" type="button" data-act="membros">Cancelar</button>':'')+'</div></fieldset></form>'+
     '<div class="sec" style="margin-top:14px"><h3>'+lista.length+(lista.length===1?' membro':' membros')+' · '+lista.filter(m=>m.cantor).length+' cantores · '+lista.filter(m=>m.musico).length+' músicos</h3>'+
@@ -1785,7 +1820,7 @@ async function telaMembros(editId){
     ocupado(btn,"Salvando…");
     try{
       await chamar("saveMembro",{membro:{id:ed?ed.id:"",nome:$("#memNome").value,usuario:$("#memUsuario").value,senha:$("#memSenha").value,
-        email:$("#memEmail").value,ministro:$("#memMin").checked,lider:$("#memLider").checked,cantor:$("#memCant").checked,musico:$("#memMus").checked,foto:novaFoto||"",removerFoto:remover}});
+        email:$("#memEmail").value,ministro:$("#memMin").checked,lider:$("#memLider").checked,permDresscode:$("#memDc").checked,cantor:$("#memCant").checked,musico:$("#memMus").checked,foto:novaFoto||"",removerFoto:remover}});
       membrosCompletos=[]; await carregar();
       if(ed&&S.eu&&ed.id===S.eu.id){try{const r=await chamar("me",{});S.eu=r.eu;lsSet("louvor_eu",JSON.stringify(r.eu));}catch(x){} render();}
       toast(ed?"Membro atualizado":"Membro adicionado"); telaMembros();
@@ -1836,6 +1871,7 @@ document.addEventListener("click",async e=>{
     case "editMembro": telaMembros(id); break;
     case "avisar": telaAvisar(); break;
     case "indisp": telaIndisp(); break;
+    case "dresscode": comLogin("Entre com sua conta para definir o dresscode.",()=>telaDresscode(id)); break;
     case "presenca": {
       const tipo=b.dataset.tipo, r=b.dataset.r;
       if(r==="nao") telaRecusa(tipo,id); else responder(tipo,id,r,"",b);
