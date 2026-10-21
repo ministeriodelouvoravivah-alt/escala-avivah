@@ -291,6 +291,19 @@ button.ag-item:hover{border-color:var(--flame)}
 .previa{margin-top:12px;border:1px solid var(--line);border-radius:12px;overflow:hidden}
 .previa summary{cursor:pointer;padding:12px 14px;font-weight:700;color:var(--brand);font-size:14px}
 .previa-box{max-height:420px;overflow:auto;border-top:1px solid var(--line)}
+.min-dest{display:flex;align-items:center;gap:14px;padding:14px 14px 12px}
+.min-dest .foto{width:92px;height:92px;flex:none}
+.min-info{display:flex;flex-direction:column;gap:3px;min-width:0}
+.min-rot{font-family:var(--f-display);font-weight:800;font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--flame)}
+.min-nm{font-family:var(--f-display);font-weight:800;font-size:22px;line-height:1.1;color:var(--brand);overflow-wrap:anywhere}
+.min-tit{font-size:13px;color:var(--muted)}
+.equipe-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 12px;padding:14px;border-top:1px solid var(--line);margin-bottom:2px}
+.pessoa-t{display:flex;align-items:center;gap:9px;min-width:0}
+.av-p{width:40px;height:40px;border-radius:50%;object-fit:cover;flex:none;display:grid;place-items:center;font-family:var(--f-display);font-weight:800;font-size:14px;color:#fff}
+.pt-txt{display:flex;flex-direction:column;min-width:0;line-height:1.25}
+.pt-nome{font-weight:700;font-size:14px;color:var(--ink);overflow-wrap:anywhere}
+.pt-func{font-family:var(--f-display);font-weight:800;font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--brand)}
+.card.passado .min-dest,.card.passado .equipe-grid{opacity:.55}
 .min-list .usr{font-family:var(--f-mono);font-size:12px;color:var(--muted);font-weight:500}
 
 /* Tela de login: a própria escala desfocada ao fundo, cartão à frente */
@@ -398,7 +411,7 @@ const CONFIG = {
   API_URL: "https://script.google.com/macros/s/AKfycbxrhX4edbA7aVQrjiIY4e7g8OeeX_7A9HvKmPRTUlxskJDYWYRQ8M6rKq8xc8HBBHF8/exec",
   NOME: "Ministério Avivah"
 };
-const VERSAO_APP = "2026.10.21-4"; // muda a cada versão enviada; não precisa editar
+const VERSAO_APP = "2026.10.21-5"; // muda a cada versão enviada; não precisa editar
 /* ======================================================== */
 
 const MESES=["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
@@ -909,14 +922,27 @@ function render(){
   }
   el.innerHTML=S.aba==="escala"?(ehLider()?barraAviso():'')+'<div class="grade">'+lista.map(cardCulto).join("")+'</div>':viewRepertorios(lista);
 }
+const CORES_AV=["#2f86c9","#14307f","#c26a2c","#2f7d4a","#6e1423","#4a6fa5","#d9161f","#59627d"];
+function corDoNome(n){let h=0;String(n).split("").forEach(ch=>{h=(h*31+ch.charCodeAt(0))>>>0;});return CORES_AV[h%CORES_AV.length];}
+function membroPorNome(nome){
+  const n=norm(nome), p=n.split(/\s+/)[0];
+  return S.membros.find(m=>norm(m.nome)===n)||S.membros.find(m=>norm(m.nome).split(/\s+/)[0]===p&&n===p)||null;
+}
+function avatarPessoa(nome){
+  const m=membroPorNome(nome);
+  if(m&&m.foto&&/^data:image\//.test(m.foto)) return '<img class="av-p" src="'+esc(m.foto)+'" alt="">';
+  return '<span class="av-p" aria-hidden="true" style="background:'+corDoNome(norm(nome))+'">'+esc(iniciais(nome))+'</span>';
+}
 function cardCulto(c){
   const d=parseData(c.data), f=c.funcoes||{}, m=membro(c.ministroId);
-  const tem=FUNCOES.some(x=>f[x[0]]);
-  const corpo=tem?FUNCOES.map(x=>'<span class="fr"><span class="fl">'+x[1]+':</span> '+(f[x[0]]?esc(f[x[0]]):'<span class="nd">–</span>')+'</span>').join("")
-    :(c.equipe?'<span class="fr" style="white-space:pre-line">'+esc(c.equipe)+'</span>':'<span class="fr nd">Equipe a definir</span>');
+  const equipe=[];
+  FUNCOES.forEach(x=>String(f[x[0]]||"").split(/\s*,\s*|\s+e\s+/).filter(Boolean).forEach(n=>equipe.push({nome:n,funcao:x[1]})));
+  const grade=equipe.length?'<span class="equipe-grid">'+equipe.map(p=>'<span class="pessoa-t">'+avatarPessoa(p.nome)+'<span class="pt-txt"><span class="pt-nome">'+esc(p.nome)+'</span><span class="pt-func">'+esc(p.funcao)+'</span></span></span>').join("")+'</span>'
+    :(c.equipe?'<span class="equipe-grid"><span class="fr" style="white-space:pre-line;grid-column:1/-1">'+esc(c.equipe)+'</span></span>':'<span class="equipe-grid"><span class="fr nd" style="grid-column:1/-1">Equipe a definir</span></span>');
   return '<button class="card'+(c.data<hojeStr()?' passado':'')+'" data-act="abrir" data-id="'+esc(c.id)+'" aria-label="'+esc(c.titulo+', '+dataCurta(c.data)+', ministro '+nomeMinistro(c.ministroId))+'">'+
     '<span class="card-top"><span class="tag-data">'+pad(d.getDate())+'/'+pad(d.getMonth()+1)+'</span>'+(c.hora?'<span class="hora">'+esc(c.hora)+'</span>':'')+dots(c.dresscode)+'</span>'+
-    '<span class="card-mid"><span class="funcoes">'+corpo+'</span><span class="min">'+avatar(m)+'<span class="min-nome">'+esc(m?m.nome:"A definir")+'</span></span></span>'+
+    '<span class="min-dest">'+avatar(m)+'<span class="min-info"><span class="min-rot">Ministro</span><span class="min-nm">'+esc(m?m.nome:"A definir")+'</span><span class="min-tit">'+esc(c.titulo)+'</span></span></span>'+
+    grade+
     '<span class="card-rep">'+pill(preenchidas(c))+(c.data<=hojeStr()?fbPill(c):'')+'</span>'+
     '<span class="card-dia">'+diaSemana(d)+'</span></button>';
 }
