@@ -376,7 +376,7 @@ function lsGet(k){try{return localStorage.getItem(k);}catch(e){return null;}}
 function lsSet(k,v){try{v==null?localStorage.removeItem(k):localStorage.setItem(k,v);}catch(e){}}
 
 /* ================= Regras (iguais às do Code.gs) ================= */
-function norm(s){return String(s||"").normalize("NFD").replace(/[̀-ͯ]/g,"").toLowerCase().trim();}
+function norm(s){return String(s||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().trim();}
 function nomesDe(txt){return String(txt||"").split(/\s*,\s*|\s*\/\s*|\s+e\s+/).map(norm).filter(Boolean);}
 function escaladoNoFeedback(c,nome){
   const n=norm(nome), p=n.split(/\s+/)[0];
@@ -406,6 +406,14 @@ function normalizarFuncoes(o){
 function normalizarDresscode(l){
   return (Array.isArray(l)?l:[]).map(x=>String(x).trim().toLowerCase()).filter(x=>HEX_RE.test(x)).filter((x,i,a)=>a.indexOf(x)===i).slice(0,6);
 }
+const TABELAS_POR_ACAO={trocarSenha:["Membros"],saveMembro:["Membros"],deleteMembro:["Membros"],saveCulto:["Cultos"],deleteCulto:["Cultos"],
+  saveRepertorio:["Cultos"],saveFeedback:["Cultos"],saveLimpeza:["Limpeza"],deleteLimpeza:["Limpeza"],saveEvento:["Eventos"],deleteEvento:["Eventos"]};
+function fotoVersao(f){f=String(f||"");return f?f.length.toString(36)+f.slice(-12):"";}
+function dadosPublicos(db){
+  return {membros:(db.membros||[]).map(m=>({id:m.id,nome:m.nome,ministro:!!m.ministro,lider:!!m.lider,cantor:!!m.cantor,musico:!!m.musico,fotoV:fotoVersao(m.foto)})),
+    cultos:db.cultos||[],limpeza:db.limpeza||[],eventos:db.eventos||[]};
+}
+function fotosDe(db){const o={};(db.membros||[]).forEach(m=>{if(m.foto) o[m.id]=m.foto;});return o;}
 function processar(db,req,env){
   db.limpeza=db.limpeza||[]; db.membros=db.membros||[]; db.eventos=db.eventos||[];
   const hashSenha=s=>env.hash("senha|"+s);
@@ -594,17 +602,24 @@ function demoDb(){
   demoMem=seed(); lsSet(DEMO_KEY,JSON.stringify(demoMem)); return demoMem;
 }
 const localApi={
-  async list(){const db=demoDb();return {membros:db.membros.map(m=>({id:m.id,nome:m.nome,foto:m.foto||"",ministro:!!m.ministro,lider:!!m.lider,cantor:!!m.cantor,musico:!!m.musico})),cultos:JSON.parse(JSON.stringify(db.cultos)),limpeza:JSON.parse(JSON.stringify(db.limpeza||[])),eventos:JSON.parse(JSON.stringify(db.eventos||[]))};},
+  async list(){return JSON.parse(JSON.stringify(dadosPublicos(demoDb())));},
+  async fotos(){return JSON.parse(JSON.stringify(fotosDe(demoDb())));},
   async call(action,payload){
     const copia=JSON.parse(JSON.stringify(demoDb()));
     const r=processar(copia,Object.assign({action:action},payload),ENV_DEMO);
-    demoMem=copia; lsSet(DEMO_KEY,JSON.stringify(copia)); return JSON.parse(JSON.stringify(r));
+    demoMem=copia; lsSet(DEMO_KEY,JSON.stringify(copia));
+    if(TABELAS_POR_ACAO[action]) r.dados=dadosPublicos(copia);
+    return JSON.parse(JSON.stringify(r));
   }
 };
 const remoteApi={
   async list(){
     const r=await fetch(CONFIG.API_URL+"?action=list&t="+Date.now());
-    const j=await r.json(); if(!j.ok) throw new Error(j.erro||"Erro ao carregar."); return j;
+    const j=await r.json(); if(!j.ok) throw new Error(j.erro||"Erro ao carregar."); return j.dados;
+  },
+  async fotos(){
+    const r=await fetch(CONFIG.API_URL+"?action=fotos&t="+Date.now());
+    const j=await r.json(); if(!j.ok) throw new Error(j.erro||"Erro ao carregar as fotos."); return j.fotos||{};
   },
   async call(action,payload){
     const r=await fetch(CONFIG.API_URL,{method:"POST",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify(Object.assign({action:action},payload))});
@@ -613,7 +628,11 @@ const remoteApi={
 };
 const api=CONFIG.API_URL?remoteApi:localApi;
 async function chamar(action,payload){
-  try{return await api.call(action,Object.assign({token:S.token},payload||{}));}
+  try{
+    const r=await api.call(action,Object.assign({token:S.token},payload||{}));
+    if(r&&r.dados){aplicarDados(r.dados);S.frescoEm=Date.now();}
+    return r;
+  }
   catch(err){
     if(err instanceof TypeError) throw new Error("Sem conexão com o servidor. Tente de novo.");
     if(/sessão expirou/i.test(err.message)){sairConta(true);}
@@ -623,8 +642,37 @@ async function chamar(action,payload){
 
 /* ================= Estado ================= */
 const agora=new Date();
+const CACHE_KEY=CONFIG.API_URL?"louvor_cache_v1":"louvor_cache_demo";
 const S={cultos:[],membros:[],limpeza:[],eventos:[],ano:agora.getFullYear(),mes:agora.getMonth(),aba:"escala",
-  token:lsGet("louvor_token"),eu:null,carregando:true,erro:null};
+  token:lsGet("louvor_token"),eu:lerJsonLocal("louvor_eu",null),carregando:true,erro:null,membrosBase:[],frescoEm:0};
+if(!S.token) S.eu=null;
+function lerJsonLocal(k,padrao){try{const v=lsGet(k);return v?JSON.parse(v):padrao;}catch(e){return padrao;}}
+let FOTOS=lerJsonLocal("louvor_fotos",{}), buscandoFotos=false;
+function mesclarFotos(){S.membros=S.membrosBase.map(m=>Object.assign({},m,{foto:(FOTOS[m.id]&&FOTOS[m.id].v===m.fotoV)?FOTOS[m.id].foto:""}));}
+function aplicarDados(d,semGuardar){
+  if(!d) return;
+  S.membrosBase=d.membros||[]; S.cultos=d.cultos||[]; S.limpeza=d.limpeza||[]; S.eventos=d.eventos||[];
+  mesclarFotos(); S.erro=null; S.carregando=false;
+  if(!semGuardar) lsSet(CACHE_KEY,JSON.stringify(d));
+  atualizarFotos();
+}
+async function atualizarFotos(){
+  const falta=S.membrosBase.some(m=>m.fotoV&&!(FOTOS[m.id]&&FOTOS[m.id].v===m.fotoV));
+  const sobra=Object.keys(FOTOS).some(id=>!S.membrosBase.some(m=>m.id===id&&m.fotoV===FOTOS[id].v));
+  if((!falta&&!sobra)||buscandoFotos) return;
+  buscandoFotos=true;
+  try{
+    const f=falta?await api.fotos():{};
+    const novo={};
+    S.membrosBase.forEach(m=>{
+      if(!m.fotoV) return;
+      if(f[m.id]&&fotoVersao(f[m.id])===m.fotoV) novo[m.id]={v:m.fotoV,foto:f[m.id]};
+      else if(FOTOS[m.id]&&FOTOS[m.id].v===m.fotoV) novo[m.id]=FOTOS[m.id];
+    });
+    FOTOS=novo; lsSet("louvor_fotos",JSON.stringify(FOTOS)); mesclarFotos(); render();
+  }catch(e){}
+  buscandoFotos=false;
+}
 
 const membro=id=>S.membros.find(x=>x.id===id);
 const ehLider=()=>!!(S.eu&&S.eu.lider);
@@ -838,7 +886,7 @@ function telaLogin(motivo,depois){
     ocupado(btn,"Entrando…");
     try{
       const r=await api.call("login",{usuario:usuario,senha:senha});
-      S.token=r.token; S.eu=r.eu; lsSet("louvor_token",r.token); if(!depois) S.aba="agenda"; render();
+      S.token=r.token; S.eu=r.eu; lsSet("louvor_token",r.token); lsSet("louvor_eu",JSON.stringify(r.eu)); if(!depois) S.aba="agenda"; render();
       toast("Olá, "+String(r.eu.nome).split(/\s+/)[0]+"!");
       if(depois) depois(); else fecharSheet();
     }catch(err){$("#errLogin").textContent=err instanceof TypeError?"Sem conexão com o servidor.":err.message;livre(btn);}
@@ -846,7 +894,7 @@ function telaLogin(motivo,depois){
 }
 function comLogin(motivo,acao){if(S.eu) acao(); else telaLogin(motivo,acao);}
 function sairConta(expirou){
-  S.token=null; S.eu=null; if(S.aba==="agenda") S.aba="escala"; lsSet("louvor_token",null); render();
+  S.token=null; S.eu=null; lsSet("louvor_eu",null); if(S.aba==="agenda") S.aba="escala"; lsSet("louvor_token",null); render();
   if(expirou) toast("Sua sessão expirou. Entre novamente.");
 }
 function telaConta(){
@@ -1162,7 +1210,7 @@ async function telaMembros(editId){
       await chamar("saveMembro",{membro:{id:ed?ed.id:"",nome:$("#memNome").value,usuario:$("#memUsuario").value,senha:$("#memSenha").value,
         ministro:$("#memMin").checked,lider:$("#memLider").checked,cantor:$("#memCant").checked,musico:$("#memMus").checked,foto:novaFoto||"",removerFoto:remover}});
       membrosCompletos=[]; await carregar();
-      if(ed&&S.eu&&ed.id===S.eu.id){try{const r=await chamar("me",{});S.eu=r.eu;}catch(x){} render();}
+      if(ed&&S.eu&&ed.id===S.eu.id){try{const r=await chamar("me",{});S.eu=r.eu;lsSet("louvor_eu",JSON.stringify(r.eu));}catch(x){} render();}
       toast(ed?"Membro atualizado":"Membro adicionado"); telaMembros();
     }catch(err){$("#errMem").textContent=err.message;livre(btn);}
   };
@@ -1248,18 +1296,18 @@ document.addEventListener("click",async e=>{
 document.addEventListener("keydown",e=>{if(e.key==="Escape"&&!$("#sheet").hidden) fecharSheet();});
 
 async function carregar(){
-  try{
-    const j=await api.list();
-    S.membros=j.membros||[]; S.cultos=j.cultos||[]; S.limpeza=j.limpeza||[]; S.eventos=j.eventos||[]; S.erro=null;
-  }catch(err){
-    S.erro=err instanceof TypeError?"Sem conexão com o servidor. Verifique a internet.":err.message;
+  if(Date.now()-S.frescoEm<4000){render();return;}
+  try{ aplicarDados(await api.list()); }
+  catch(err){
+    const msg=err instanceof TypeError?"Sem conexão com o servidor. Verifique a internet.":err.message;
+    if(S.cultos.length||S.membrosBase.length) toast("Sem conexão. Mostrando a última versão salva."); else S.erro=msg;
   }
   S.carregando=false; render();
 }
 async function restaurarSessao(){
   if(!S.token) return;
-  try{const r=await api.call("me",{token:S.token});S.eu=r.eu;if(S.aba==="escala"&&$("#sheet").hidden) S.aba="agenda";}
-  catch(err){if(!(err instanceof TypeError)){S.token=null;lsSet("louvor_token",null);}}
+  try{const r=await api.call("me",{token:S.token});S.eu=r.eu;lsSet("louvor_eu",JSON.stringify(r.eu));}
+  catch(err){if(!(err instanceof TypeError)){S.token=null;S.eu=null;lsSet("louvor_token",null);lsSet("louvor_eu",null);}}
   render();
 }
 document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible"&&CONFIG.API_URL&&$("#sheet").hidden) carregar();});
@@ -1269,7 +1317,10 @@ $("#nomeMin").innerHTML=esc(CONFIG.NOME)+"<small>Louvor</small>";
 $("#demoBanner").hidden=!!CONFIG.API_URL;
 $("#tons").innerHTML=TONS.map(t=>'<option value="'+t+'">').join("");
 $("#titulos").innerHTML=TITULOS.map(t=>'<option value="'+esc(t)+'">').join("");
-render(); carregar().then(restaurarSessao);
+const inicial=lerJsonLocal(CACHE_KEY,null);
+if(inicial){aplicarDados(inicial,true);}
+if(S.eu) S.aba="agenda";
+render(); carregar(); restaurarSessao();
 })();
 </script>
 
