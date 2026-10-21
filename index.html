@@ -483,7 +483,7 @@ const CONFIG = {
   API_URL: "https://script.google.com/macros/s/AKfycbxrhX4edbA7aVQrjiIY4e7g8OeeX_7A9HvKmPRTUlxskJDYWYRQ8M6rKq8xc8HBBHF8/exec",
   NOME: "Ministério Avivah"
 };
-const VERSAO_APP = "2026.10.21-9"; // muda a cada versão enviada; não precisa editar
+const VERSAO_APP = "2026.10.21-10"; // muda a cada versão enviada; não precisa editar
 /* ======================================================== */
 
 const MESES=["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
@@ -711,6 +711,8 @@ function processar(db,req,env){
         if(/^\d{4}-\d{2}-\d{2}$/.test(d)&&!vistos[d]){vistos[d]=1; out.push({data:d,motivo:String(i.motivo||"").trim().slice(0,120)});}
       });
       if(out.length>300) throw new Error("Muitos dias marcados. Remova datas antigas.");
+      const ja={}; (eu.indisp||[]).forEach(i=>{ja[i.data]=1;});
+      if(out.some(i=>!ja[i.data]&&i.motivo.length<3)) throw new Error("Nos conte o motivo da ausência, é importante.");
       eu.indisp=out.sort((a,b)=>a.data.localeCompare(b.data));
       return {eu:publico(eu)};
     }
@@ -1349,7 +1351,8 @@ function telaConta(){
     '<label for="sNova">Nova senha</label><input id="sNova" type="password" autocomplete="new-password" minlength="4" required>'+
     '<label for="sConf">Repita a nova senha</label><input id="sConf" type="password" autocomplete="new-password" required>'+
     '<p class="err" id="errSenha"></p><div class="actions" style="margin-top:8px"><button class="btn" type="submit">Salvar nova senha</button></div></form>'+
-    '<div class="actions lider-actions"><button class="btn ghost danger" data-act="sair">Sair da conta</button></div>');
+    '<div class="actions lider-actions"><button class="btn ghost danger" data-act="sair">Sair da conta</button></div>'+
+    '<p class="hint" style="margin-top:14px;text-align:center">Versão do app: '+VERSAO_APP+'</p>');
   $("#fEmail").onsubmit=async e=>{
     e.preventDefault();
     const btn=e.submitter||$("#fEmail button[type=submit]");
@@ -1533,7 +1536,7 @@ function telaIndisp(){
     '<div class="cal-nav"><button type="button" class="icon-btn cal-seta" id="calAnt" aria-label="Mês anterior">‹</button><span class="cal-mes" id="calMes"></span><button type="button" class="icon-btn cal-seta" id="calProx" aria-label="Próximo mês">›</button></div>'+
     '<div class="cal-sem" aria-hidden="true"><span>D</span><span>S</span><span>T</span><span>Q</span><span>Q</span><span>S</span><span>S</span></div><div class="cal-grade" id="calGrade"></div>'+
     '<div class="cal-leg"><span><i class="lg-m"></i>Indisponível</span><span><i class="lg-c"></i>Dia de culto</span></div>'+
-    '<form id="fIndisp" class="form"><label for="indMotivo">Motivo dos dias novos (opcional, só os líderes veem)</label><input id="indMotivo" placeholder="Ex.: viagem, trabalho, prova" autocomplete="off">'+
+    '<form id="fIndisp" class="form" novalidate><label for="indMotivo">Motivo da ausência (obrigatório, só os líderes veem)</label><input id="indMotivo" placeholder="Ex.: viagem, trabalho, prova" autocomplete="off">'+
     '<p class="nota" id="calResumo"></p><p class="err" id="errIndisp"></p><div class="actions"><button class="btn" type="submit">Salvar</button><button class="btn ghost" type="button" data-act="fechar">Cancelar</button></div></form>');
   desenhar();
   $("#calAnt").onclick=()=>{vm--; if(vm<0){vm=11;va--;} desenhar();};
@@ -1547,6 +1550,7 @@ function telaIndisp(){
   $("#fIndisp").onsubmit=async e=>{
     e.preventDefault();
     const btn=e.submitter||$("#fIndisp button[type=submit]"), mot=$("#indMotivo").value.trim();
+    if(mot.length<3&&lista.some(i=>i.motivo===null)){$("#errIndisp").textContent="Nos conte o motivo da ausência, é importante.";$("#indMotivo").focus();return;}
     const envio=lista.filter(i=>i.data>=hoje).map(i=>({data:i.data,motivo:i.motivo===null?mot:i.motivo}));
     ocupado(btn,"Salvando…");
     try{const r=await chamar("salvarIndisp",{lista:envio});S.eu=r.eu;lsSet("louvor_eu",JSON.stringify(r.eu));fecharSheet();render();carregarDadosLider();toast("Dias salvos");}
