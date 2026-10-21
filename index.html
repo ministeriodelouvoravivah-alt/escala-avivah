@@ -1011,7 +1011,7 @@ function formFeedback(c){
   preencherPessoas();
   abrirSheet('<div class="eyebrow">'+esc(c.titulo)+' · '+dataCurta(c.data)+'</div><h2 class="sh-title" id="sheetTitulo">Feedback do culto</h2>'+
     '<p class="lead">Registre como foi a ministração para a equipe crescer junta.</p>'+
-    '<form id="fFb" class="form"><label for="fbAutor">Quem está dando o feedback</label><input id="fbAutor" list="pessoas" value="'+esc(autor)+'" autocomplete="off">'+
+    '<form id="fFb" class="form"><label for="fbAutor">Quem está dando o feedback</label>'+seletorMembro("fbAutor",autor)+
     '<label for="fbBem">O que foi bem</label><textarea id="fbBem" placeholder="Ex.: Entradas no tempo, backing afinado, boa conexão com a igreja.">'+esc(fb.bem)+'</textarea>'+
     '<label for="fbMel">O que melhorar</label><textarea id="fbMel" placeholder="Ex.: Volume do retorno, transição para a oferta.">'+esc(fb.melhorar)+'</textarea>'+
     (c.feedback?'<p class="hint">Para apagar o feedback, deixe os dois campos de texto vazios e salve.</p>':'')+
@@ -1046,17 +1046,18 @@ function formCulto(c){
     '<label for="cMin">Ministro (cantor)</label><select id="cMin">'+opts+'</select>'+
     (ministros.length?'':'<p class="hint">Marque quem é ministro em “Membros” para escolher aqui.</p>')+
     '<fieldset class="bloco"><legend>Equipe</legend><div class="fgrid">'+
-      [0,1].map(i=>'<div><label for="f_backing'+i+'">Backing '+(i+1)+'</label><input id="f_backing'+i+'" list="cantores" value="'+esc(backs[i])+'" placeholder="–" autocomplete="off"></div>').join("")+
-      FUNCOES.filter(x=>x[0]!=="backing").map(x=>'<div><label for="f_'+x[0]+'">'+x[1]+'</label>'+(SELECAO_TODOS[x[0]]?seletorMembro("f_"+x[0],f[x[0]]):
-        '<input id="f_'+x[0]+'" list="'+LISTA_FUNCAO[x[0]]+'" value="'+esc(f[x[0]])+'" placeholder="–" autocomplete="off">')+'</div>').join("")+'</div>'+
-      '<p class="hint">Separe os nomes com vírgula. Use o nome igual ao da conta do membro: assim quem está no Feedback consegue registrar.</p></fieldset>'+
-    '<fieldset class="bloco"><legend>Dresscode</legend><p class="hint" style="margin-top:4px">Paleta de roupas do culto. Toque nas cores para escolher, na ordem que quiser.</p>'+
-      '<div class="dc-sel" id="dcSel"></div><div class="dc-presets" id="dcPresets"></div>'+
+      [0,1].map(i=>'<div><label for="f_backing'+i+'">Backing '+(i+1)+'</label>'+seletorMembro("f_backing"+i,backs[i],m=>m.cantor,"Cantores")+'</div>').join("")+
+      FUNCOES.filter(x=>x[0]!=="backing").map(x=>'<div><label for="f_'+x[0]+'">'+x[1]+'</label>'+
+        (SELECAO_TODOS[x[0]]?seletorMembro("f_"+x[0],f[x[0]]):seletorMembro("f_"+x[0],f[x[0]],m=>m.musico,"Músicos"))+'</div>').join("")+'</div>'+
+      '<p class="hint">'+(S.membros.length?'Os nomes vêm do cadastro em “Membros”. Cantores aparecem primeiro no Backing e músicos primeiro nos instrumentos.':'Cadastre a equipe em “Membros” para escolher os nomes aqui.')+'</p></fieldset>'+
+    '<fieldset class="bloco"><legend>Dresscode</legend><p class="hint" style="margin-top:4px">Paleta de roupas do culto. Toque em quantas cores quiser (até 6), na ordem que preferir. Toque de novo para tirar.</p>'+
+      '<p class="hint" id="dcCont" style="font-weight:700;color:var(--brand)"></p><div class="dc-sel" id="dcSel"></div><div class="dc-presets" id="dcPresets"></div>'+
       '<label class="dc-outra" for="dcCustom"><input type="color" id="dcCustom" value="#1b2f6b">Adicionar outra cor</label></fieldset>'+
     '<label for="cObs">Avisos</label><textarea id="cObs" placeholder="Ex.: Ensaio no sábado às 16h.">'+esc(c.obs)+'</textarea>'+
     '<p class="err" id="errCulto"></p><div class="actions"><button class="btn" type="submit">'+(novo?'Lançar culto':'Salvar alterações')+'</button>'+
     (novo?'':'<button class="btn ghost" type="button" data-act="abrir" data-id="'+esc(c.id)+'">Cancelar</button>')+'</div></form>');
   const pintarDc=()=>{
+    $("#dcCont").textContent=dc.length?dc.length+" de 6 cores escolhidas":"Nenhuma cor escolhida";
     $("#dcSel").innerHTML=dc.length?dc.map(h=>'<span class="dc-chip"><span class="dot" style="background:'+h+'"></span>'+esc(nomeCor(h))+'<button type="button" data-dc-del="'+h+'" aria-label="Remover '+esc(nomeCor(h))+'">×</button></span>').join(""):'<span class="hint">Sem dresscode</span>';
     $("#dcPresets").innerHTML=CORES.map(x=>'<button type="button" data-dc="'+x[0]+'" style="background:'+x[0]+'" title="'+x[1]+'" aria-label="'+x[1]+'" aria-pressed="'+(dc.includes(x[0])?"true":"false")+'"></button>').join("");
   };
@@ -1088,29 +1089,33 @@ function formCulto(c){
 }
 
 const SELECAO_TODOS={torre:1,feedback:1};
-function seletorMembro(id,atual){
+function seletorMembro(id,atual,filtro,rotulo){
   atual=String(atual||"").trim();
-  const nomes=S.membros.map(m=>m.nome).sort((a,b)=>a.localeCompare(b));
-  const conhecido=!atual||nomes.some(n=>norm(n)===norm(atual));
+  const todos=S.membros.slice().sort((a,b)=>a.nome.localeCompare(b.nome));
+  const prim=filtro?todos.filter(filtro):[], outros=filtro?todos.filter(m=>!filtro(m)):[];
+  const conhecido=!atual||todos.some(m=>norm(m.nome)===norm(atual));
+  const opts=l=>l.map(m=>'<option value="'+esc(m.nome)+'"'+(atual&&norm(m.nome)===norm(atual)?' selected':'')+'>'+esc(m.nome)+'</option>').join("");
   return '<select id="'+id+'"><option value="">–</option>'+
     (conhecido?'':'<option value="'+esc(atual)+'" selected>'+esc(atual)+'</option>')+
-    nomes.map(n=>'<option value="'+esc(n)+'"'+(conhecido&&atual&&norm(n)===norm(atual)?' selected':'')+'>'+esc(n)+'</option>').join("")+'</select>';
+    (prim.length&&outros.length?'<optgroup label="'+esc(rotulo)+'">'+opts(prim)+'</optgroup><optgroup label="Outros membros">'+opts(outros)+'</optgroup>':opts(todos))+'</select>';
 }
 
 /* ----- Limpeza (líder) ----- */
 function formLimpeza(it){
   const novo=!it;
   if(novo){const hoje=hojeStr(),pref=S.ano+"-"+pad(S.mes+1)+"-";it={data:hoje.startsWith(pref)?hoje:pref+"01",responsaveis:""};}
+  const rl=String(it.responsaveis||"").split(/\s*,\s*|\s+e\s+/).filter(Boolean), resp=[rl[0]||"",rl[1]||"",rl.slice(2).join(", ")];
   preencherPessoas();
   abrirSheet('<div class="eyebrow">Escala de limpeza</div><h2 class="sh-title" id="sheetTitulo">'+(novo?'Nova limpeza':'Editar limpeza')+'</h2>'+
     '<form id="fLimp" class="form"><label for="lData">Data</label><input id="lData" type="date" value="'+esc(it.data)+'" required>'+
-    '<label for="lResp">Quem está escalado</label><input id="lResp" list="pessoas" value="'+esc(it.responsaveis)+'" placeholder="Ex.: Kelly, Nathalia" autocomplete="off" required>'+
-    '<p class="hint">Separe os nomes com vírgula.</p>'+
+    '<div class="fgrid" style="margin-top:4px">'+[0,1,2].map(i=>'<div><label for="lResp'+i+'">'+(i<2?'Pessoa '+(i+1):'Pessoa 3 (opcional)')+'</label>'+seletorMembro("lResp"+i,resp[i])+'</div>').join("")+'</div>'+
+    (S.membros.length?'':'<p class="hint">Cadastre a equipe em “Membros” para escolher os nomes aqui.</p>')+
     '<p class="err" id="errLimp"></p><div class="actions"><button class="btn" type="submit">'+(novo?'Adicionar':'Salvar alterações')+'</button><button class="btn ghost" type="button" data-act="fechar">Cancelar</button></div></form>');
   $("#fLimp").onsubmit=async e=>{
     e.preventDefault();
     const btn=e.submitter||$("#fLimp button[type=submit]");
-    const dados={id:it.id||"",data:$("#lData").value,responsaveis:$("#lResp").value};
+    const dados={id:it.id||"",data:$("#lData").value,responsaveis:[0,1,2].map(i=>$("#lResp"+i).value.trim()).filter(Boolean).filter((v,i,a)=>a.indexOf(v)===i).join(", ")};
+    if(!dados.responsaveis){$("#errLimp").textContent="Escolha pelo menos uma pessoa.";return;}
     ocupado(btn,"Salvando…");
     try{
       await chamar("saveLimpeza",{item:dados});
