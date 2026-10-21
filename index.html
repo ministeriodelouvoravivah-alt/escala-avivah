@@ -284,6 +284,33 @@ button.ag-item:hover{border-color:var(--flame)}
 .ag-acao::before{content:"";width:7px;height:7px;border-radius:50%;background:currentColor}
 .ag-sec{font-family:var(--f-display);font-size:12px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:6px 2px -2px}
 .min-list .usr{font-family:var(--f-mono);font-size:12px;color:var(--muted);font-weight:500}
+
+/* Tela de login: a própria escala desfocada ao fundo, cartão à frente */
+.login{position:fixed;inset:0;z-index:70;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;overflow-y:auto;
+  padding-top:calc(24px + env(safe-area-inset-top,0px));padding-bottom:calc(24px + env(safe-area-inset-bottom,0px));
+  padding-left:max(20px,env(safe-area-inset-left,0px));padding-right:max(20px,env(safe-area-inset-right,0px));
+  background:rgba(11,22,66,.55);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);animation:entraLogin .25s ease-out}
+@supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){.login{background:rgba(11,22,66,.9)}}
+@keyframes entraLogin{from{opacity:0}to{opacity:1}}
+@media (prefers-reduced-motion:reduce){.login{animation:none}}
+.login-card{width:100%;max-width:420px;box-sizing:border-box;background:#fff;border-radius:24px;padding:28px 22px 22px;box-shadow:0 24px 60px rgba(4,10,35,.45);display:flex;flex-direction:column;gap:6px;flex:none}
+@media (min-width:720px){.login-card{padding:34px 32px 26px;border-radius:26px}}
+.login-topo{display:flex;flex-direction:column;align-items:center;gap:10px;margin-bottom:8px;text-align:center}
+.login-topo img{width:80px;height:80px;border-radius:50%;box-shadow:0 0 0 3px #fff,0 0 0 4px var(--line)}
+.login-eb{font-family:var(--f-display);font-weight:700;font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:var(--flame)}
+.login-h{margin:4px 0 0;font-family:var(--f-display);font-weight:800;font-size:26px;line-height:1.2;color:var(--brand)}
+.login-p{margin:0;font-size:14px;color:var(--muted);max-width:300px}
+.login-card label{font-size:13px;font-weight:600;color:var(--muted);margin-top:8px}
+.login-card input{font:inherit;font-size:16px;padding:13px 14px;border:1px solid var(--line);border-radius:12px;background:#f6f8fc;color:var(--ink);width:100%;box-sizing:border-box}
+.login-card input:focus{outline:2px solid var(--brand);outline-offset:0;border-color:transparent}
+.senha-box{position:relative;display:flex}
+.senha-box input{padding-right:96px}
+.senha-box button{position:absolute;right:6px;top:6px;bottom:6px;border:0;background:var(--brand-soft);color:var(--brand);border-radius:9px;padding:0 12px;font-size:13px;font-weight:700}
+.login-btn{margin-top:16px;min-height:50px;border:0;border-radius:14px;background:var(--brand);color:#fff;font-family:var(--f-display);font-weight:800;font-size:16px;letter-spacing:.04em}
+.login-btn:disabled{opacity:.6;cursor:wait}
+.login-nota{margin:10px 0 0;text-align:center;font-size:13px;color:var(--muted)}
+.login-sec{display:inline-flex;align-items:center;gap:8px;min-height:44px;padding:0 18px;border-radius:999px;border:1px solid rgba(255,255,255,.45);background:transparent;color:#fff;font-weight:600;font-size:14px;flex:none}
+.login-sec svg{width:16px;height:16px}
 </style>
 
 <header class="hero">
@@ -327,6 +354,24 @@ button.ag-item:hover{border-color:var(--flame)}
   </div>
 </div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<div class="login" id="telaLogin" hidden role="dialog" aria-modal="true" aria-labelledby="loginTitulo">
+  <form class="login-card" id="fLogin" autocomplete="on" novalidate>
+    <div class="login-topo">
+      <img id="loginLogo" alt="Logo do Ministério Avivah">
+      <div><div class="login-eb" id="loginNome">Ministério Avivah</div><h1 class="login-h" id="loginTitulo">Escala de Louvor</h1></div>
+      <p class="login-p" id="loginMotivo">Entre com o usuário e a senha que o líder do ministério criou para você.</p>
+    </div>
+    <label for="lgUsuario">Usuário</label>
+    <input id="lgUsuario" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="Ex.: lorena">
+    <label for="lgSenha">Senha</label>
+    <div class="senha-box"><input id="lgSenha" type="password" autocomplete="current-password" placeholder="Sua senha"><button type="button" id="lgVer" aria-label="Mostrar senha">Mostrar</button></div>
+    <p class="err" id="errLogin"></p>
+    <button class="login-btn" type="submit" id="lgEntrar">Entrar</button>
+    <p class="login-nota">Esqueceu a senha? Fale com um líder do ministério.</p>
+  </form>
+  <button type="button" class="login-sec" id="lgSemEntrar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg><span id="lgSemTxt">Ver a escala sem entrar</span></button>
+</div>
 
 <datalist id="tons"></datalist>
 <datalist id="titulos"></datalist>
@@ -871,24 +916,39 @@ function semPermissao(c,titulo,msg){
 }
 
 /* ----- Entrar, conta e sessão ----- */
+let loginDepois=null;
 function telaLogin(motivo,depois){
-  abrirSheet('<div class="eyebrow">Ministério de louvor</div><h2 class="sh-title" id="sheetTitulo">Entrar</h2>'+
-    '<p class="lead">'+esc(motivo||"Use o usuário e a senha que o líder do ministério criou para você.")+'</p>'+
-    '<form id="fLogin" class="form" autocomplete="on"><label for="lgUsuario">Usuário</label><input id="lgUsuario" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" required>'+
-    '<label for="lgSenha">Senha</label><input id="lgSenha" type="password" autocomplete="current-password" required>'+
-    '<p class="err" id="errLogin"></p><div class="actions"><button class="btn" type="submit">Entrar</button></div>'+
-    '<p class="hint" style="margin-top:10px">Esqueceu a senha? Peça a um líder para criar uma nova.</p></form>');
+  loginDepois=depois||null;
+  if(!$("#sheet").hidden) fecharSheet();
+  $("#loginMotivo").textContent=motivo||"Entre com o usuário e a senha que o líder do ministério criou para você.";
+  $("#lgSemTxt").textContent=depois?"Agora não":"Ver a escala sem entrar";
+  $("#errLogin").textContent=""; $("#lgSenha").value=""; $("#lgSenha").type="password";
+  $("#lgVer").textContent="Mostrar"; $("#lgVer").setAttribute("aria-label","Mostrar senha");
+  $("#telaLogin").hidden=false; document.body.style.overflow="hidden";
+  if(!("ontouchstart" in window)) setTimeout(()=>$("#lgUsuario").focus(),50);
+}
+function fecharLogin(){$("#telaLogin").hidden=true;document.body.style.overflow="";loginDepois=null;}
+function prepararLogin(){
+  const logo=document.querySelector(".hero .logo"); if(logo) $("#loginLogo").src=logo.src;
+  $("#loginNome").textContent=CONFIG.NOME;
+  $("#lgVer").onclick=()=>{
+    const i=$("#lgSenha"), ver=i.type==="password";
+    i.type=ver?"text":"password"; $("#lgVer").textContent=ver?"Ocultar":"Mostrar"; $("#lgVer").setAttribute("aria-label",ver?"Ocultar senha":"Mostrar senha");
+  };
+  $("#lgSemEntrar").onclick=()=>{if(!loginDepois) lsSet("louvor_visitante","1"); fecharLogin();};
   $("#fLogin").onsubmit=async e=>{
     e.preventDefault();
-    const btn=e.submitter||$("#fLogin button[type=submit]");
+    const btn=$("#lgEntrar");
     const usuario=$("#lgUsuario").value.trim(), senha=$("#lgSenha").value;
     if(!usuario||!senha){$("#errLogin").textContent="Preencha usuário e senha.";return;}
-    ocupado(btn,"Entrando…");
+    $("#errLogin").textContent=""; ocupado(btn,"Entrando…");
     try{
       const r=await api.call("login",{usuario:usuario,senha:senha});
-      S.token=r.token; S.eu=r.eu; lsSet("louvor_token",r.token); lsSet("louvor_eu",JSON.stringify(r.eu)); if(!depois) S.aba="agenda"; render();
-      toast("Olá, "+String(r.eu.nome).split(/\s+/)[0]+"!");
-      if(depois) depois(); else fecharSheet();
+      S.token=r.token; S.eu=r.eu; lsSet("louvor_token",r.token); lsSet("louvor_eu",JSON.stringify(r.eu)); lsSet("louvor_visitante",null);
+      const depois=loginDepois; livre(btn); fecharLogin(); $("#lgSenha").value="";
+      if(!depois) S.aba="agenda";
+      render(); toast("Olá, "+String(r.eu.nome).split(/\s+/)[0]+"!");
+      if(depois) depois();
     }catch(err){$("#errLogin").textContent=err instanceof TypeError?"Sem conexão com o servidor.":err.message;livre(btn);}
   };
 }
@@ -1298,7 +1358,7 @@ document.addEventListener("click",async e=>{
     }
   }
 });
-document.addEventListener("keydown",e=>{if(e.key==="Escape"&&!$("#sheet").hidden) fecharSheet();});
+document.addEventListener("keydown",e=>{if(e.key!=="Escape") return; if(!$("#telaLogin").hidden){fecharLogin();return;} if(!$("#sheet").hidden) fecharSheet();});
 
 async function carregar(){
   if(Date.now()-S.frescoEm<4000){render();return;}
@@ -1325,7 +1385,9 @@ $("#titulos").innerHTML=TITULOS.map(t=>'<option value="'+esc(t)+'">').join("");
 const inicial=lerJsonLocal(CACHE_KEY,null);
 if(inicial){aplicarDados(inicial,true);}
 if(S.eu) S.aba="agenda";
+prepararLogin();
 render(); carregar(); restaurarSessao();
+if(!S.token&&lsGet("louvor_visitante")!=="1") telaLogin();
 })();
 </script>
 
