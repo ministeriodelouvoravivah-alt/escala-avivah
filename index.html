@@ -451,6 +451,9 @@ button.aus-item:hover{background:var(--surface-2)}
 .aus-p small{color:var(--muted);font-size:12.5px}
 .aus-p em{font-style:normal;font-family:var(--f-display);font-weight:800;color:var(--danger);font-size:16px}
 @media (max-width:440px){.aus-resumo{grid-template-columns:1fr 1fr 1fr;gap:6px}.aus-num{padding:10px 8px}.aus-num b{font-size:22px}}
+.pt-conv{display:inline-block;align-self:flex-start;font-style:normal;font-family:var(--f-display);font-weight:800;font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;background:#efe6fb;color:#5b2d9a;padding:1px 7px;border-radius:999px;margin-top:2px}
+.nv-conv{margin-top:6px}
+.ag-bloco.pedido.conv{border-color:#cdb6ee;background:#f8f4fd}
 .min-list .usr{font-family:var(--f-mono);font-size:12px;color:var(--muted);font-weight:500}
 
 /* Tela de login: a própria escala desfocada ao fundo, cartão à frente */
@@ -559,7 +562,7 @@ const CONFIG = {
   API_URL: "https://script.google.com/macros/s/AKfycbxrhX4edbA7aVQrjiIY4e7g8OeeX_7A9HvKmPRTUlxskJDYWYRQ8M6rKq8xc8HBBHF8/exec",
   NOME: "Ministério Avivah"
 };
-const VERSAO_APP = "2026.10.22-5"; // muda a cada versão enviada; não precisa editar
+const VERSAO_APP = "2026.10.22-6"; // muda a cada versão enviada; não precisa editar
 /* ======================================================== */
 
 const MESES=["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
@@ -621,7 +624,7 @@ function normalizarFuncoes(o){
 function normalizarDresscode(l){
   return (Array.isArray(l)?l:[]).map(x=>String(x).trim().toLowerCase()).filter(x=>HEX_RE.test(x)).filter((x,i,a)=>a.indexOf(x)===i).slice(0,6);
 }
-const TABELAS_POR_ACAO={responderPedido:["Cultos","Limpeza"],publicarMes:["Avisos"],despublicarMes:["Avisos"],salvarDresscode:["Cultos"],salvarIndisp:["Membros"],responderPresenca:["Cultos","Limpeza"],salvarEmail:["Membros"],avisarEquipe:["Avisos"],trocarSenha:["Membros"],saveMembro:["Membros"],deleteMembro:["Membros"],saveCulto:["Cultos"],deleteCulto:["Cultos"],
+const TABELAS_POR_ACAO={deleteConvidado:["Convidados"],responderPedido:["Cultos","Limpeza","Convidados"],publicarMes:["Avisos"],despublicarMes:["Avisos"],salvarDresscode:["Cultos"],salvarIndisp:["Membros"],responderPresenca:["Cultos","Limpeza","Convidados"],salvarEmail:["Membros"],avisarEquipe:["Avisos"],trocarSenha:["Membros"],saveMembro:["Membros"],deleteMembro:["Membros"],saveCulto:["Cultos","Convidados"],deleteCulto:["Cultos"],
   saveRepertorio:["Cultos"],saveFeedback:["Cultos"],saveLimpeza:["Limpeza"],deleteLimpeza:["Limpeza"],saveEvento:["Eventos"],deleteEvento:["Eventos"]};
 function fotoVersao(f){f=String(f||"");return f?f.length.toString(36)+f.slice(-12):"";}
 function mesPublicado(db,data){const mes=String(data).slice(0,7);return (db.avisos||[]).some(a=>a.mes===mes&&a.publicado);}
@@ -640,7 +643,7 @@ function dadosPublicos(db){
   return {membros:(db.membros||[]).map(m=>({id:m.id,nome:m.nome,ministro:!!m.ministro,lider:!!m.lider,cantor:!!m.cantor,musico:!!m.musico,fotoV:fotoVersao(m.foto)})),
     cultos:(db.cultos||[]).map(c=>mesPublicado(db,c.data)?Object.assign({},c,{presencas:semMotivo(c.presencas),substituicoes:subsPublicas(c.substituicoes),pedidos:pedidosPublicos(c.pedidos)}):redigirCulto(c)),
     limpeza:(db.limpeza||[]).map(x=>mesPublicado(db,x.data)?Object.assign({},x,{presencas:semMotivo(x.presencas),substituicoes:subsPublicas(x.substituicoes),pedidos:pedidosPublicos(x.pedidos)}):redigirLimpeza(x)),
-    eventos:db.eventos||[],avisos:(db.avisos||[]).map(a=>({mes:a.mes,enviadoEm:a.enviadoEm,enviadoPor:a.enviadoPor,publicado:!!a.publicado}))};
+    eventos:db.eventos||[],convidados:(db.convidados||[]).map(c=>({id:c.id,nome:c.nome})),avisos:(db.avisos||[]).map(a=>({mes:a.mes,enviadoEm:a.enviadoEm,enviadoPor:a.enviadoPor,publicado:!!a.publicado}))};
 }
 function fotosDe(db){const o={};(db.membros||[]).forEach(m=>{if(m.foto) o[m.id]=m.foto;});return o;}
 /* ----- E-mails (montados aqui e enviados pelo servidor) ----- */
@@ -728,7 +731,7 @@ function trocarNome(txt,de,para){
   const n=norm(de), p=n.split(/\s+/)[0];
   return String(txt||"").split(/\s*,\s*|\s+e\s+/).filter(Boolean).map(x=>{const k=norm(x);return (k===n||k===p)?para:x;}).join(", ");
 }
-function pedidosPublicos(l){return (Array.isArray(l)?l:[]).map(x=>({id:x.id,de:x.de,deNome:x.deNome,para:x.para,paraNome:x.paraNome,funcoes:x.funcoes||[],status:x.status,em:x.em}));}
+function pedidosPublicos(l){return (Array.isArray(l)?l:[]).map(x=>({id:x.id,de:x.de,deNome:x.deNome,para:x.para,paraNome:x.paraNome,convidado:!!x.convidado,funcoes:x.funcoes||[],status:x.status,em:x.em}));}
 function pedidoPendente(alvo,deId){return (alvo.pedidos||[]).filter(p=>p.de===deId&&p.status==="pendente").slice(-1)[0]||null;}
 function cancelarPedidos(alvo,deId){(alvo.pedidos||[]).forEach(p=>{if(p.de===deId&&p.status==="pendente"){p.status="cancelado";p.respondidoEm=new Date().toISOString();}});}
 function validarSubstituto(db,alvo,tipo,de,sub){
@@ -739,17 +742,38 @@ function validarSubstituto(db,alvo,tipo,de,sub){
   if((sub.indisp||[]).some(i=>i.data===alvo.data)) throw new Error(sub.nome+" marcou que não pode servir neste dia. Escolha outra pessoa.");
   if(tipo==="culto"&&alvo.ministroId===de.id&&!sub.ministro) throw new Error("Quem sai é o ministro do culto: o substituto precisa ser outro ministro.");
 }
+function nomeConvidadoValido(db,nome){
+  nome=String(nome||"").replace(/\s+/g," ").trim().slice(0,60);
+  if(nome.length<2) throw new Error("Digite o nome do convidado.");
+  if(/,|\se\s/i.test(" "+nome+" ")&&/,/.test(nome)) throw new Error("Digite um nome por vez.");
+  if((db.membros||[]).some(m=>norm(m.nome)===norm(nome))) throw new Error(nome+" já é membro da equipe. Escolha na lista de membros.");
+  return nome;
+}
+function guardarConvidado(db,nome){
+  db.convidados=db.convidados||[];
+  if(!db.convidados.some(c=>norm(c.nome)===norm(nome))) db.convidados.push({id:uid(),nome:nome,criadoEm:new Date().toISOString()});
+}
+function emailPedidoConvidado(de,nome,alvo,tipo,funcao,motivo,link,pid,nomeMin){
+  const quando=dataBR(alvo.data)+(alvo.hora?' · '+alvo.hora:'');
+  const url=link?link+(link.indexOf("?")>=0?"&":"?")+"pedido="+encodeURIComponent(pid):"";
+  const corpo='<p style="margin:0 0 8px"><strong>'+escH(de.nome)+'</strong> não vai conseguir servir e pediu para ser substituído(a) pelo convidado <strong>'+escH(nome)+'</strong> (de fora da igreja).</p>'+
+    tabelaEmail([linhaEmail(escH(quando)+' — '+escH(tipo==="limpeza"?"Escala de limpeza":alvo.titulo),'Função: <strong>'+escH(funcao)+'</strong>')])+
+    (motivo?'<p style="margin:10px 0 0;color:#59627d">Motivo: '+escH(motivo)+'</p>':'')+
+    '<p style="margin:14px 0 0">Como o convidado não tem conta no app, um líder precisa aprovar a troca.</p>'+
+    (url?'<p style="margin:16px 0 4px"><a href="'+escH(url)+'" style="display:inline-block;background:#25784a;color:#ffffff;text-decoration:none;font-weight:bold;padding:12px 22px;border-radius:999px">Aprovar ou recusar</a></p>':'');
+  return {assunto:"Aprovar convidado: "+nome+" no lugar de "+String(de.nome).split(/\s+/)[0]+" em "+dataBR(alvo.data),html:emailBase("Substituição por convidado",corpo,"",nomeMin)};
+}
 function aplicarTroca(db,alvo,tipo,de,sub,funcoes,motivo){
   if(tipo==="culto"){
-    if(alvo.ministroId===de.id) alvo.ministroId=sub.id;
+    if(alvo.ministroId===de.id&&!sub.convidado) alvo.ministroId=sub.id;
     const f=alvo.funcoes||{};
     FUNCOES.forEach(x=>{if(nomeNaLista(f[x[0]],de.nome)) f[x[0]]=trocarNome(f[x[0]],de.nome,sub.nome);});
     alvo.funcoes=f;
   } else alvo.responsaveis=trocarNome(alvo.responsaveis,de.nome,sub.nome);
   alvo.presencas=alvo.presencas||{};
   delete alvo.presencas[de.id];
-  alvo.presencas[sub.id]={s:"ok",motivo:"",em:new Date().toISOString()};
-  alvo.substituicoes=(alvo.substituicoes||[]).concat([{de:de.id,deNome:de.nome,para:sub.id,paraNome:sub.nome,funcoes:funcoes,motivo:motivo,em:new Date().toISOString()}]);
+  if(!sub.convidado) alvo.presencas[sub.id]={s:"ok",motivo:"",em:new Date().toISOString()};
+  alvo.substituicoes=(alvo.substituicoes||[]).concat([{de:de.id,deNome:de.nome,para:sub.convidado?"":sub.id,paraNome:sub.nome,convidado:!!sub.convidado,funcoes:funcoes,motivo:motivo,em:new Date().toISOString()}]);
 }
 function emailPedido(sub,de,alvo,tipo,funcao,link,pid,nomeMin,lembrete){
   const quando=dataBR(alvo.data)+(alvo.hora?' · '+alvo.hora:'');
@@ -763,13 +787,20 @@ function emailPedido(sub,de,alvo,tipo,funcao,link,pid,nomeMin,lembrete){
 function emailRespostaPedido(dest,ped,alvo,tipo,aceitou,link,nomeMin,paraLider){
   const quando=dataBR(alvo.data)+(alvo.hora?' · '+alvo.hora:'');
   const sub=String(ped.paraNome).split(/\s+/)[0], de=String(ped.deNome).split(/\s+/)[0];
+  if(ped.convidado){
+    const c='<p style="margin:0 0 8px">'+(paraLider?'':'Olá, '+escH(String(dest.nome).split(/\s+/)[0])+'! ')+
+      (aceitou?'A liderança aprovou o convidado <strong>'+escH(ped.paraNome)+'</strong> no lugar de <strong>'+escH(ped.deNome)+'</strong>. A escala já foi atualizada.'
+        :'A liderança não aprovou o convidado <strong>'+escH(ped.paraNome)+'</strong> no lugar de <strong>'+escH(ped.deNome)+'</strong>.'+(paraLider?'':' Abra o app e indique outra pessoa.'))+'</p>'+
+      tabelaEmail([linhaEmail(escH(quando)+' — '+escH(tipo==="limpeza"?"Escala de limpeza":alvo.titulo),'Função: <strong>'+escH((ped.funcoes||[]).join(", "))+'</strong>')]);
+    return {assunto:(aceitou?"Convidado aprovado: ":"Convidado não aprovado: ")+ped.paraNome+" no lugar de "+de+" em "+dataBR(alvo.data),html:emailBase(aceitou?"Convidado aprovado":"Convidado não aprovado",c,link,nomeMin)};
+  }
   const corpo='<p style="margin:0 0 8px">'+(paraLider?'':'Olá, '+escH(String(dest.nome).split(/\s+/)[0])+'! ')+
     (aceitou?'<strong>'+escH(ped.paraNome)+'</strong> aceitou substituir <strong>'+escH(ped.deNome)+'</strong>. A escala já foi atualizada.'
       :'<strong>'+escH(ped.paraNome)+'</strong> não pode substituir <strong>'+escH(ped.deNome)+'</strong>.'+(paraLider?'':' Abra o app e indique outra pessoa.'))+'</p>'+
     tabelaEmail([linhaEmail(escH(quando)+' — '+escH(tipo==="limpeza"?"Escala de limpeza":alvo.titulo),'Função: <strong>'+escH((ped.funcoes||[]).join(", "))+'</strong>')]);
   return {assunto:aceitou?sub+" aceitou substituir "+de+" em "+dataBR(alvo.data):sub+" não pode substituir "+de+" em "+dataBR(alvo.data),html:emailBase(aceitou?"Substituição confirmada":"Substituição recusada",corpo,link,nomeMin)};
 }
-function subsPublicas(l){return (Array.isArray(l)?l:[]).map(x=>({de:x.de,deNome:x.deNome,para:x.para,paraNome:x.paraNome,funcoes:x.funcoes||[],em:x.em}));}
+function subsPublicas(l){return (Array.isArray(l)?l:[]).map(x=>({de:x.de,deNome:x.deNome,para:x.para,paraNome:x.paraNome,convidado:!!x.convidado,funcoes:x.funcoes||[],em:x.em}));}
 function emailSubstituto(sub,de,alvo,tipo,funcao,link,nomeMin){
   const quando=dataBR(alvo.data)+(alvo.hora?' · '+alvo.hora:'');
   const corpo='<p style="margin:0 0 8px">Olá, '+escH(String(sub.nome).split(/\s+/)[0])+'! <strong>'+escH(de.nome)+'</strong> não vai conseguir servir e indicou você para o lugar dele(a).</p>'+
@@ -890,6 +921,19 @@ function processar(db,req,env){
       if(r==="ok"){alvo.presencas[eu.id]={s:"ok",motivo:"",em:new Date().toISOString()}; cancelarPedidos(alvo,eu.id); return {};}
       const motivo=String(req.motivo||"").trim().slice(0,200);
       if(motivo.length<3) throw new Error("Nos conte o motivo da ausência, é importante.");
+      if(req.convidadoNome){
+        if(tipo!=="culto") throw new Error("Convidados de fora só podem substituir nos cultos.");
+        if(alvo.ministroId===eu.id) throw new Error("O ministro só pode ser substituído por outro ministro da equipe.");
+        const nomeC=nomeConvidadoValido(db,req.convidadoNome);
+        if(FUNCOES.some(x=>nomeNaLista((alvo.funcoes||{})[x[0]],nomeC))) throw new Error(nomeC+" já está escalado(a) neste culto.");
+        cancelarPedidos(alvo,eu.id);
+        alvo.presencas[eu.id]={s:"nao",motivo:motivo,em:new Date().toISOString()};
+        const pc={id:uid(),de:eu.id,deNome:eu.nome,para:"",paraNome:nomeC,convidado:true,funcoes:funcoes,motivo:motivo,status:"pendente",em:new Date().toISOString(),respondidoEm:""};
+        alvo.pedidos=(alvo.pedidos||[]).concat([pc]);
+        const ec=emailPedidoConvidado(eu,nomeC,alvo,tipo,funcoes.join(", "),motivo,env.link(),pc.id,env.nomeMin);
+        db.membros.filter(m=>m.lider&&m.email&&m.id!==eu.id).forEach(m=>{try{env.enviar(m.email,ec.assunto,ec.html);}catch(x){}});
+        return {substituto:nomeC,pendente:true,convidado:true};
+      }
       const sub=db.membros.find(x=>x.id===req.substitutoId);
       validarSubstituto(db,alvo,tipo,eu,sub);
       cancelarPedidos(alvo,eu.id);
@@ -907,18 +951,24 @@ function processar(db,req,env){
       db.cultos.forEach(c=>(c.pedidos||[]).forEach(p=>{if(p.id===req.pedidoId){alvo=c;tipo="culto";ped=p;}}));
       db.limpeza.forEach(x=>(x.pedidos||[]).forEach(p=>{if(p.id===req.pedidoId){alvo=x;tipo="limpeza";ped=p;}}));
       if(!ped) throw new Error("Pedido não encontrado. Atualize a página.");
-      if(ped.para!==eu.id) throw new Error("Este pedido de substituição não é para você.");
+      if(ped.convidado){ if(!eu.lider) throw new Error("Só um líder pode aprovar a troca por convidado."); }
+      else if(ped.para!==eu.id) throw new Error("Este pedido de substituição não é para você.");
       if(ped.status!=="pendente") throw new Error(ped.status==="aceito"?"Você já aceitou este pedido.":"Este pedido não está mais valendo.");
       if(alvo.data<env.hoje()) throw new Error("Esse compromisso já passou.");
       const de=db.membros.find(x=>x.id===ped.de);
       const deAinda=de&&(tipo==="culto"?papeisDe(alvo,de).length>0:nomeNaLista(alvo.responsaveis,de.nome));
       if(!deAinda){ped.status="cancelado"; ped.respondidoEm=new Date().toISOString(); throw new Error("A escala mudou e este pedido não vale mais.");}
       const aceitar=!!req.aceitar;
-      if(aceitar){
+      if(aceitar&&ped.convidado){
+        const nomeC=nomeConvidadoValido(db,ped.paraNome);
+        aplicarTroca(db,alvo,tipo,de,{convidado:true,nome:nomeC,id:""},ped.funcoes,ped.motivo);
+        guardarConvidado(db,nomeC);
+        ped.status="aceito"; ped.aprovadoPor=eu.nome;
+      } else if(aceitar){
         validarSubstituto(db,alvo,tipo,de,eu);
         aplicarTroca(db,alvo,tipo,de,eu,ped.funcoes,ped.motivo);
         ped.status="aceito";
-      } else ped.status="recusado";
+      } else {ped.status="recusado"; if(ped.convidado) ped.aprovadoPor=eu.nome;}
       ped.respondidoEm=new Date().toISOString();
       const link=env.link();
       if(de.email){const e1=emailRespostaPedido(de,ped,alvo,tipo,aceitar,link,env.nomeMin,false); try{env.enviar(de.email,e1.assunto,e1.html);}catch(x){}}
@@ -1001,6 +1051,8 @@ function processar(db,req,env){
       const c=req.culto||{};
       if(!/^\d{4}-\d{2}-\d{2}$/.test(c.data||"")) throw new Error("Informe a data do culto.");
       if(!String(c.titulo||"").trim()) throw new Error("Informe o nome do culto.");
+      const novosConv=(Array.isArray(c.convidadosNovos)?c.convidadosNovos:[]).map(n=>nomeConvidadoValido(db,n));
+      novosConv.forEach(n=>guardarConvidado(db,n));
       const id=c.id||uid();
       const i=db.cultos.findIndex(x=>x.id===id);
       const atual=i>=0?db.cultos[i]:{musicas:[],feedback:null};
@@ -1013,6 +1065,7 @@ function processar(db,req,env){
       if(i>=0) db.cultos[i]=novo; else db.cultos.push(novo);
       return {culto:novo};
     }
+    case "deleteConvidado": exigirLider(); db.convidados=(db.convidados||[]).filter(x=>x.id!==req.id); return {};
     case "deleteCulto": exigirLider(); db.cultos=db.cultos.filter(x=>x.id!==req.id); return {};
     case "saveRepertorio":{
       exigirLogin();
@@ -1070,7 +1123,7 @@ function hashDemo(t){let h1=0xdeadbeef,h2=0x41c6ce57;for(let i=0;i<t.length;i++)
 const ENVIOS_DEMO=[];
 const ENV_DEMO={hash:t=>hashDemo("demo-avivah|"+t),enviar:(para,assunto)=>{ENVIOS_DEMO.push({para:para,assunto:assunto});},
   hoje:()=>hojeStr(),link:()=>String(location.href).split("#")[0].split("?")[0],nomeMin:"Ministério Avivah"};
-const DEMO_KEY="louvor_demo_v12";
+const DEMO_KEY="louvor_demo_v13";
 let demoMem=null;
 function seed(){
   const now=new Date(), y=now.getFullYear(), m=now.getMonth();
@@ -1136,8 +1189,11 @@ function seed(){
       funcoes:F("Kelly, Yara","Daniel","Davidson","Pablo","Felipe","","Michelle","Gabriel"),dresscode:dow===0?["#ffffff","#d9c4a3"]:[],musicas:[vz(),vz(),vz(),vz(),vz()],feedback:null});
     feitos++;
   }
+  if(cultos[6]){cultos[6].presencas.p4={s:"nao",motivo:"Viagem a trabalho"};
+    cultos[6].pedidos=(cultos[6].pedidos||[]).concat([{id:"pd2",de:"p4",deNome:"Felipe",para:"",paraNome:"Lucas",convidado:true,funcoes:["Baixo"],motivo:"Viagem a trabalho",status:"pendente",em:new Date().toISOString(),respondidoEm:""}]);}
+  const convidados=[{id:"cv1",nome:"Lucas",criadoEm:""},{id:"cv2",nome:"André Baterista",criadoEm:""}];
   const avisos=[{mes:y+"-"+pad(m+1),enviadoEm:"",enviadoDia:"",enviadoPor:"",lembrete3:"",lembrete6:"",publicado:true}];
-  return JSON.parse(JSON.stringify({membros:membros,cultos:cultos,limpeza:limpeza,eventos:eventos,avisos:avisos}));
+  return JSON.parse(JSON.stringify({membros:membros,cultos:cultos,limpeza:limpeza,eventos:eventos,avisos:avisos,convidados:convidados}));
 }
 function demoDb(){
   if(demoMem) return demoMem;
@@ -1196,7 +1252,7 @@ async function chamar(action,payload){
 /* ================= Estado ================= */
 const agora=new Date();
 const CACHE_KEY=CONFIG.API_URL?"louvor_cache_v1":"louvor_cache_demo";
-const S={rasc:null,cultos:[],membros:[],limpeza:[],eventos:[],avisos:[],lid:{indisp:{},motivos:{}},ano:agora.getFullYear(),mes:agora.getMonth(),aba:"escala",
+const S={convidados:[],rasc:null,cultos:[],membros:[],limpeza:[],eventos:[],avisos:[],lid:{indisp:{},motivos:{}},ano:agora.getFullYear(),mes:agora.getMonth(),aba:"escala",
   token:lsGet("louvor_token"),eu:lerJsonLocal("louvor_eu",null),carregando:true,erro:null,membrosBase:[],frescoEm:0};
 if(!S.token) S.eu=null;
 function lerJsonLocal(k,padrao){try{const v=lsGet(k);return v?JSON.parse(v):padrao;}catch(e){return padrao;}}
@@ -1212,7 +1268,7 @@ function mesclarRascunhos(){
 function mesPublicadoCli(chave){return S.avisos.some(a=>a.mes===chave&&a.publicado);}
 function aplicarDados(d,semGuardar){
   if(!d) return;
-  S.membrosBase=d.membros||[]; S.cultos=d.cultos||[]; S.limpeza=d.limpeza||[]; S.eventos=d.eventos||[]; S.avisos=d.avisos||[];
+  S.membrosBase=d.membros||[]; S.cultos=d.cultos||[]; S.limpeza=d.limpeza||[]; S.eventos=d.eventos||[]; S.avisos=d.avisos||[]; S.convidados=d.convidados||[];
   mesclarRascunhos();
   mesclarFotos(); S.erro=null; S.carregando=false;
   if(!semGuardar) lsSet(CACHE_KEY,JSON.stringify(d));
@@ -1326,6 +1382,7 @@ function pedidoDe(obj,deId){return (obj.pedidos||[]).filter(p=>p.de===deId&&p.st
 function tagPedido(obj,m){
   if(!m||obj.data<hojeStr()) return "";
   const p=pedidoDe(obj,m.id); if(!p||p.status==="aceito") return "";
+  if(p.status==="pendente"&&p.convidado) return '<span class="pt-troca pend">'+ICO_TROCA+'convidado '+esc(String(p.paraNome).split(/\s+/)[0])+', aguardando líder</span>';
   return p.status==="pendente"?'<span class="pt-troca pend">'+ICO_TROCA+'aguardando '+esc(String(p.paraNome).split(/\s+/)[0])+' aceitar</span>':'<span class="pt-troca rec">'+ICO_TROCA+'procurando substituto</span>';
 }
 function pedidosParaMim(){
@@ -1334,6 +1391,21 @@ function pedidosParaMim(){
   S.cultos.forEach(c=>(c.pedidos||[]).forEach(p=>{if(p.para===S.eu.id&&p.status==="pendente"&&c.data>=hoje) out.push({tipo:"culto",obj:c,p:p});}));
   S.limpeza.forEach(x=>(x.pedidos||[]).forEach(p=>{if(p.para===S.eu.id&&p.status==="pendente"&&x.data>=hoje) out.push({tipo:"limpeza",obj:x,p:p});}));
   return out.sort((a,b)=>a.obj.data.localeCompare(b.obj.data));
+}
+function pedidosParaAprovar(){
+  if(!ehLider()) return [];
+  const out=[], hoje=hojeStr();
+  S.cultos.forEach(c=>(c.pedidos||[]).forEach(p=>{if(p.convidado&&p.status==="pendente"&&c.data>=hoje) out.push({tipo:"culto",obj:c,p:p});}));
+  return out.sort((a,b)=>a.obj.data.localeCompare(b.obj.data));
+}
+function blocoAprovar(it){
+  const d=parseData(it.obj.data), o=it.obj, mot=S.lid.motivos["p:"+it.p.id];
+  return '<div class="ag-bloco pedido conv"><div class="ag-item"><span class="ag-dia"><b>'+pad(d.getDate())+'</b><span>'+SEM[d.getDay()]+'</span></span><span class="ag-info">'+
+    '<span class="ag-tipo">Culto · '+diaSemana(d)+(o.hora?' · '+esc(o.hora):'')+'</span><span class="ag-t">'+esc(o.titulo)+'</span>'+
+    '<span class="ag-meta"><strong>'+esc(it.p.deNome)+'</strong> pediu o convidado <strong>'+esc(it.p.paraNome)+'</strong> no lugar dele(a)</span>'+
+    '<span class="papeis">'+(it.p.funcoes||[]).map(f=>'<span class="papel">'+esc(f)+'</span>').join("")+'<span class="pt-conv">Convidado</span></span>'+
+    (mot?'<span class="ag-meta">Motivo: '+esc(mot)+'</span>':'')+'</span></div>'+
+    '<div class="pres-btns"><button type="button" class="btn ok-btn" data-act="pedido" data-pid="'+esc(it.p.id)+'" data-ac="1">Aprovar</button><button type="button" class="btn ghost nao-btn" data-act="pedido" data-pid="'+esc(it.p.id)+'" data-ac="0">Recusar</button></div></div>';
 }
 function blocoPedido(it){
   const d=parseData(it.obj.data), o=it.obj;
@@ -1349,7 +1421,8 @@ async function responderPedido(pid,aceitar,btn){
   try{
     await chamar("responderPedido",{pedidoId:pid,aceitar:aceitar});
     await carregar(); if(!$("#sheet").hidden) fecharSheet(); render();
-    toast(aceitar?"Substituição aceita. Obrigado por servir!":"Resposta enviada. Quem pediu vai indicar outra pessoa.");
+    const conv=[].concat(...S.cultos.map(c=>c.pedidos||[])).some(p=>p.id===pid&&p.convidado);
+    toast(conv?(aceitar?"Convidado aprovado. A escala foi atualizada.":"Pedido recusado. Quem pediu vai indicar outra pessoa."):(aceitar?"Substituição aceita. Obrigado por servir!":"Resposta enviada. Quem pediu vai indicar outra pessoa."));
   }catch(err){toast(err.message); if(btn) livre(btn);}
 }
 function abrirPedido(pid){
@@ -1357,12 +1430,22 @@ function abrirPedido(pid){
   S.cultos.forEach(c=>(c.pedidos||[]).forEach(p=>{if(p.id===pid) it={tipo:"culto",obj:c,p:p};}));
   S.limpeza.forEach(x=>(x.pedidos||[]).forEach(p=>{if(p.id===pid) it={tipo:"limpeza",obj:x,p:p};}));
   if(!it){toast("Pedido não encontrado."); return;}
+  if(it.p.convidado){
+    if(!ehLider()){toast("Só um líder pode aprovar convidados."); return;}
+    if(it.p.status!=="pendente"){toast("Este pedido já foi respondido."); return;}
+    S.aba="agenda"; render();
+    abrirSheet('<div class="eyebrow">Substituição por convidado</div><h2 class="sh-title" id="sheetTitulo">Aprovar '+esc(it.p.paraNome)+'?</h2>'+
+      '<p class="lead">'+esc(it.p.deNome)+' não vai conseguir servir e indicou um convidado de fora da igreja. Ao aprovar, a escala é atualizada.</p>'+blocoAprovar(it));
+    return;
+  }
   if(it.p.para!==S.eu.id){toast("Este pedido não é para a sua conta."); return;}
   if(it.p.status!=="pendente"){toast(it.p.status==="aceito"?"Você já aceitou este pedido.":"Este pedido não está mais valendo."); return;}
   S.aba="agenda"; render();
   abrirSheet('<div class="eyebrow">Pedido de substituição</div><h2 class="sh-title" id="sheetTitulo">'+esc(it.p.deNome)+' precisa de você</h2>'+
     '<p class="lead">'+esc(it.p.deNome)+' não vai conseguir servir e pediu para você ficar no lugar dele(a). A troca só vale quando você aceitar.</p>'+blocoPedido(it));
 }
+function ehConvidado(nome){const n=norm(nome);return !S.membros.some(m=>norm(m.nome)===n)&&S.convidados.some(c=>norm(c.nome)===n);}
+function subPorNome(obj,nome){const n=norm(nome);return (obj.substituicoes||[]).filter(x=>norm(x.paraNome)===n).slice(-1)[0]||null;}
 function tagTroca(obj,m){const sb=m&&subDe(obj,m.id); return sb?'<span class="pt-troca" title="Substituindo '+esc(sb.deNome)+'">'+ICO_TROCA+'no lugar de '+esc(String(sb.deNome).split(/\s+/)[0])+'</span>':'';}
 const SELO={ok:['<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round"><path d="M5 12l5 5 9-10"/></svg>',"Confirmado"],
   nao:['<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>',"Não vai"],
@@ -1396,7 +1479,8 @@ function avisoCard(c){
   const linhas=[];
   nao.forEach(n=>{
     const m=membroPorNome(n), p=m&&pedidoDe(c,m.id), pn=x=>esc(String(x).split(/\s+/)[0]);
-    if(p&&p.status==="pendente") linhas.push('<strong>'+pn(n)+'</strong> não vai; aguardando <strong>'+pn(p.paraNome)+'</strong> aceitar.');
+    if(p&&p.status==="pendente"&&p.convidado) linhas.push('<strong>'+pn(n)+'</strong> não vai; pediu o convidado <strong>'+esc(p.paraNome)+'</strong>. Falta aprovar.');
+    else if(p&&p.status==="pendente") linhas.push('<strong>'+pn(n)+'</strong> não vai; aguardando <strong>'+pn(p.paraNome)+'</strong> aceitar.');
     else if(p&&p.status==="recusado") linhas.push('<strong>'+pn(n)+'</strong> não vai e <strong>'+pn(p.paraNome)+'</strong> recusou substituir.');
     else linhas.push('<strong>'+pn(n)+'</strong> avisou que não vai.');
   });
@@ -1431,8 +1515,8 @@ function cardCulto(c){
   const grade=equipe.length?'<span class="equipe-grid">'+equipe.map(p=>{
       const mm=membroPorNome(p.nome), al=alertaDe(p.nome).filter(a=>a.tipo==="indisp"||a.funcoes.indexOf(p.funcao)>=0), cls=al.length?(al[0].tipo==="indisp"?' anel-indisp':' anel-dup'):'';
       const nao=mm&&futuro&&recusou(c,mm.id);
-      const tr=mm&&subDe(c,mm.id);
-      return '<span class="pessoa-t"><span class="av-wrap'+cls+(nao?' recusou':'')+(tr?' trocado':'')+'">'+avatarPessoa(p.nome)+(futuro?selo(c,mm):'')+(tr?'<span class="selo-troca" aria-hidden="true">'+ICO_TROCA+'</span>':'')+'</span><span class="pt-txt"><span class="pt-nome">'+esc(p.nome)+'</span><span class="pt-func">'+esc(p.funcao)+'</span>'+tagTroca(c,mm)+tagPedido(c,mm)+
+      const tr=mm?subDe(c,mm.id):subPorNome(c,p.nome), conv=!mm&&ehConvidado(p.nome);
+      return '<span class="pessoa-t"><span class="av-wrap'+cls+(nao?' recusou':'')+(tr?' trocado':'')+'">'+avatarPessoa(p.nome)+(futuro?selo(c,mm):'')+(tr?'<span class="selo-troca" aria-hidden="true">'+ICO_TROCA+'</span>':'')+'</span><span class="pt-txt"><span class="pt-nome">'+esc(p.nome)+'</span><span class="pt-func">'+esc(p.funcao)+'</span>'+(mm?tagTroca(c,mm):(tr?'<span class="pt-troca">'+ICO_TROCA+'no lugar de '+esc(String(tr.deNome).split(/\s+/)[0])+'</span>':''))+(conv?'<span class="pt-conv">Convidado</span>':'')+tagPedido(c,mm)+
         (al.length?'<span class="pt-alerta '+al[0].tipo+'">'+(al[0].tipo==="indisp"?'Indisponível neste dia':'Em duas funções')+'</span>':'')+'</span></span>';
     }).join("")+'</span>'
     :(c.equipe?'<span class="equipe-grid"><span class="fr" style="white-space:pre-line;grid-column:1/-1">'+esc(c.equipe)+'</span></span>':'<span class="equipe-grid"><span class="fr nd" style="grid-column:1/-1">Equipe a definir</span></span>');
@@ -1554,6 +1638,7 @@ function viewAgenda(){
   return '<div class="ag-head">'+avatar(membro(eu.id)||eu)+'<div><p class="ag-ola">Olá, '+esc(primeiro)+'!</p><p class="ag-sub">'+sub+'</p>'+
     (pend?'<p class="ag-pend">'+pend+(pend>1?' presenças para confirmar':' presença para confirmar')+'</p>':'')+
     '<button type="button" class="btn ghost sm" data-act="indisp" style="margin-top:8px">Marcar dias que não posso</button></div></div>'+
+    (pedidosParaAprovar().length?'<p class="ag-sec pedidos">Convidados aguardando sua aprovação</p><div class="ag-list">'+pedidosParaAprovar().map(blocoAprovar).join("")+'</div>':'')+
     (pedidosParaMim().length?'<p class="ag-sec pedidos">Pedidos de substituição para você</p><div class="ag-list">'+pedidosParaMim().map(blocoPedido).join("")+'</div>':'')+
     (n?'<div class="ag-list">'+itens.map(linha).join("")+'</div>':'')+
     (evs.length?'<p class="ag-sec">Eventos do ministério '+quando+'</p><div class="ag-list">'+evs.map(linhaEv).join("")+'</div>':'');
@@ -1622,12 +1707,12 @@ function viewAusencias(){
     const comPedido={};
     (a.pedidos||[]).filter(p=>p.status!=="cancelado").forEach(p=>{
       comPedido[p.de]=1;
-      itens.push({data:a.data,ordem:1,tipo:p.status==="aceito"?"subst":p.status==="recusado"?"recusado":"pendente",pessoa:p.deNome,id:p.de,sub:p.paraNome,funcoes:p.funcoes||[],
+      itens.push({data:a.data,ordem:1,conv:!!p.convidado,tipo:p.status==="aceito"?"subst":p.status==="recusado"?"recusado":"pendente",pessoa:p.deNome,id:p.de,sub:p.paraNome,funcoes:p.funcoes||[],
         motivo:S.lid.motivos["p:"+p.id]||"",alvo:titulo,abrir:tipo==="culto"?a.id:"",tipoAlvo:tipo});
     });
     (a.substituicoes||[]).forEach(sb=>{
       if(comPedido[sb.de]) return;
-      itens.push({data:a.data,ordem:1,tipo:"subst",pessoa:sb.deNome,id:sb.de,sub:sb.paraNome,funcoes:sb.funcoes||[],motivo:S.lid.motivos["s:"+a.id+":"+sb.de+":"+sb.para]||"",alvo:titulo,abrir:tipo==="culto"?a.id:"",tipoAlvo:tipo});
+      itens.push({data:a.data,ordem:1,conv:!!sb.convidado,tipo:"subst",pessoa:sb.deNome,id:sb.de,sub:sb.paraNome,funcoes:sb.funcoes||[],motivo:S.lid.motivos["s:"+a.id+":"+sb.de+":"+sb.para]||"",alvo:titulo,abrir:tipo==="culto"?a.id:"",tipoAlvo:tipo});
     });
     Object.keys(a.presencas||{}).forEach(id=>{
       const p=a.presencas[id]; if(!p||p.s!=="nao"||comPedido[id]) return;
@@ -1647,8 +1732,8 @@ function viewAusencias(){
     const rt=ROT[i.tipo];
     let det="";
     if(i.tipo==="indisp") det=i.conflito.length?'<span class="aus-conf">Está escalado(a): '+esc(i.conflito.join(" · "))+'</span>':'<span class="aus-ok">Não está escalado(a) neste dia</span>';
-    else if(i.tipo==="subst") det='<span>'+esc(i.alvo)+' · '+esc(i.funcoes.join(", "))+'</span><span class="aus-sub">'+ICO_TROCA+esc(i.sub)+' no lugar</span>';
-    else if(i.tipo==="pendente") det='<span>'+esc(i.alvo)+' · '+esc(i.funcoes.join(", "))+'</span><span class="aus-pend">Pediu a '+esc(prim(i.sub))+', ainda sem resposta</span>';
+    else if(i.tipo==="subst") det='<span>'+esc(i.alvo)+' · '+esc(i.funcoes.join(", "))+'</span><span class="aus-sub">'+ICO_TROCA+esc(i.sub)+' no lugar'+(i.conv?' <em class="pt-conv">Convidado</em>':'')+'</span>';
+    else if(i.tipo==="pendente") det='<span>'+esc(i.alvo)+' · '+esc(i.funcoes.join(", "))+'</span><span class="aus-pend">'+(i.conv?'Pediu o convidado '+esc(i.sub)+'; falta um líder aprovar':'Pediu a '+esc(prim(i.sub))+', ainda sem resposta')+'</span>';
     else if(i.tipo==="recusado") det='<span>'+esc(i.alvo)+' · '+esc(i.funcoes.join(", "))+'</span><span class="aus-conf">'+esc(prim(i.sub))+' não pode; falta indicar outra pessoa</span>';
     else det='<span>'+esc(i.alvo)+'</span><span class="aus-conf">Avisou que não vai e não indicou substituto</span>';
     const tag=i.abrir?'button type="button" data-act="abrir" data-id="'+esc(i.abrir)+'"':'div';
@@ -1663,7 +1748,9 @@ function viewAusencias(){
   const pessoas={}; itens.forEach(i=>{(pessoas[i.pessoa]=pessoas[i.pessoa]||[]).push(i);});
   const porPessoa='<div class="aus-pessoas">'+Object.keys(pessoas).sort((a,b)=>new Set(pessoas[b].map(i=>i.data)).size-new Set(pessoas[a].map(i=>i.data)).size||a.localeCompare(b)).map(n=>
     '<div class="aus-p">'+avatarPessoa(n)+'<span><b>'+esc(n)+'</b><small>'+pessoas[n].map(i=>{const d=parseData(i.data);return pad(d.getDate())+'/'+pad(d.getMonth()+1);}).filter((v,k,a)=>a.indexOf(v)===k).join(", ")+'</small></span><em title="dias">'+pessoas[n].map(i=>i.data).filter((v,k,a)=>a.indexOf(v)===k).length+'</em></div>').join("")+'</div>';
+  const apr=pedidosParaAprovar();
   return '<div class="aus-topo"><h2>Ausências de '+mesN+'</h2><p>Só líderes veem esta página. Toque em um culto para abrir os detalhes.</p></div>'+resumo+
+    (apr.length?'<h3 class="aus-sec">Convidados aguardando aprovação</h3><div class="ag-list">'+apr.map(blocoAprovar).join("")+'</div>':'')+
     '<h3 class="aus-sec">Por dia</h3>'+porDia+'<h3 class="aus-sec">Por pessoa</h3>'+porPessoa;
 }
 
@@ -1782,11 +1869,16 @@ function botoesPresenca(tipo,id,p){
   if(p&&p.s==="ok") return '<div class="pres-st ok"><span>'+SELO.ok[0]+'Presença confirmada</span><button type="button" class="link-btn" data-act="presenca" data-tipo="'+tipo+'" data-id="'+esc(id)+'" data-r="">Desfazer</button></div>';
   if(p&&p.s==="nao"){
     const obj=tipo==="culto"?S.cultos.find(x=>x.id===id):S.limpeza.find(x=>x.id===id), ped=obj&&S.eu?pedidoDe(obj,S.eu.id):null;
-    if(ped&&ped.status==="pendente") return '<div class="pres-st pend"><span>'+ICO_TROCA+'Aguardando '+esc(String(ped.paraNome).split(/\s+/)[0])+' aceitar. Você continua na escala até lá.</span><button type="button" class="link-btn" data-act="presenca" data-tipo="'+tipo+'" data-id="'+esc(id)+'" data-r="">Cancelar pedido</button></div>';
-    if(ped&&ped.status==="recusado") return '<div class="pres-st nao col"><span>'+esc(String(ped.paraNome).split(/\s+/)[0])+' não pode substituir. Indique outra pessoa.</span><div class="pres-btns" style="margin-top:8px"><button type="button" class="btn nao-cheio" data-act="presenca" data-tipo="'+tipo+'" data-id="'+esc(id)+'" data-r="nao">Indicar outra pessoa</button><button type="button" class="btn ghost" data-act="presenca" data-tipo="'+tipo+'" data-id="'+esc(id)+'" data-r="ok">Vou conseguir ir</button></div></div>';
+    if(ped&&ped.status==="pendente") return '<div class="pres-st pend"><span>'+ICO_TROCA+(ped.convidado?'Aguardando a liderança aprovar o convidado '+esc(ped.paraNome)+'.':'Aguardando '+esc(String(ped.paraNome).split(/\s+/)[0])+' aceitar.')+' Você continua na escala até lá.</span><button type="button" class="link-btn" data-act="presenca" data-tipo="'+tipo+'" data-id="'+esc(id)+'" data-r="">Cancelar pedido</button></div>';
+    if(ped&&ped.status==="recusado") return '<div class="pres-st nao col"><span>'+(ped.convidado?'A liderança não aprovou o convidado '+esc(ped.paraNome)+'.':esc(String(ped.paraNome).split(/\s+/)[0])+' não pode substituir.')+' Indique outra pessoa.</span><div class="pres-btns" style="margin-top:8px"><button type="button" class="btn nao-cheio" data-act="presenca" data-tipo="'+tipo+'" data-id="'+esc(id)+'" data-r="nao">Indicar outra pessoa</button><button type="button" class="btn ghost" data-act="presenca" data-tipo="'+tipo+'" data-id="'+esc(id)+'" data-r="ok">Vou conseguir ir</button></div></div>';
     return '<div class="pres-st nao"><span>Você avisou que não vai. Os líderes já sabem.</span><button type="button" class="link-btn" data-act="presenca" data-tipo="'+tipo+'" data-id="'+esc(id)+'" data-r="">Desfazer</button></div>';
   }
   return '<div class="pres-btns"><button type="button" class="btn ok-btn" data-act="presenca" data-tipo="'+tipo+'" data-id="'+esc(id)+'" data-r="ok">Confirmo</button><button type="button" class="btn ghost nao-btn" data-act="presenca" data-tipo="'+tipo+'" data-id="'+esc(id)+'" data-r="nao">Não vou conseguir</button></div>';
+}
+function convidadosDoCulto(c){
+  const f=c.funcoes||{}, out=[];
+  FUNCOES.forEach(x=>String(f[x[0]]||"").split(/\s*,\s*|\s+e\s+/).filter(Boolean).forEach(n=>{if(!membroPorNome(n)&&ehConvidado(n)) out.push({nome:n,funcao:x[1]});}));
+  return out;
 }
 function secPresenca(c){
   if(c.data<hojeStr()) return "";
@@ -1802,6 +1894,8 @@ function secPresenca(c){
     '<ul class="pres-list">'+linhas+'</ul>'+
     ((c.substituicoes||[]).length?'<div class="subs-hist"><h4>'+ICO_TROCA+'Substituições</h4>'+(c.substituicoes||[]).map(sb=>{const mot=ehLider()?S.lid.motivos["s:"+c.id+":"+sb.de+":"+sb.para]:"";
       return '<p><strong>'+esc(sb.paraNome)+'</strong> no lugar de <strong>'+esc(sb.deNome)+'</strong> · '+esc((sb.funcoes||[]).join(", "))+(mot?'<small>Motivo: '+esc(mot)+'</small>':'')+'</p>';}).join("")+'</div>':'')+
+    (ehLider()?(c.pedidos||[]).filter(p=>p.convidado&&p.status==="pendente").map(p=>blocoAprovar({tipo:"culto",obj:c,p:p})).join(""):'')+
+    (convidadosDoCulto(c).length?'<p class="nota">Convidados neste culto: '+convidadosDoCulto(c).map(x=>'<strong>'+esc(x.nome)+'</strong> ('+esc(x.funcao)+')').join(", ")+'</p>':'')+
     (ehLider()&&k.nao?'<div class="actions" style="margin-top:8px"><button class="btn" data-act="editarCulto" data-id="'+esc(c.id)+'">Escolher substituto</button></div>':'')+'</div>';
 }
 const podeDresscode=()=>!!(S.eu&&(S.eu.lider||S.eu.permDresscode));
@@ -1921,7 +2015,10 @@ function opcoesSubstituto(obj,tipo){
   const outros=livres.filter(m=>ok(m)&&sug.indexOf(m)<0);
   const op=l=>l.map(m=>'<option value="'+esc(m.id)+'">'+esc(m.nome)+'</option>').join("");
   const rot=ehMin?"Ministros":canta?"Cantores":toca?"Músicos":"";
-  return {html:'<option value="">Escolha um membro</option>'+(sug.length&&rot?'<optgroup label="'+rot+'">'+op(sug)+'</optgroup>'+(outros.length?'<optgroup label="Outros membros">'+op(outros)+'</optgroup>':''):op(sug.concat(outros))),
+  const jaNomes=tipo==="culto"?FUNCOES.map(x=>(obj.funcoes||{})[x[0]]).join(", "):"";
+  const convs=tipo==="culto"&&!ehMin?S.convidados.filter(c=>!estaNaLista(jaNomes,c.nome)).sort((a,b)=>a.nome.localeCompare(b.nome)):[];
+  const optConv=tipo==="culto"&&!ehMin?'<optgroup label="Músico de fora (convidado)">'+convs.map(c=>'<option value="c:'+esc(c.nome)+'">'+esc(c.nome)+' · convidado</option>').join("")+'<option value="c:__novo">+ Novo convidado…</option></optgroup>':'';
+  return {html:'<option value="">Escolha um membro</option>'+(sug.length&&rot?'<optgroup label="'+rot+'">'+op(sug)+'</optgroup>'+(outros.length?'<optgroup label="Outros membros">'+op(outros)+'</optgroup>':''):op(sug.concat(outros)))+optConv,
     vazio:!sug.length&&!outros.length, ehMin:ehMin, meus:meus};
 }
 function telaRecusa(tipo,id){
@@ -1931,19 +2028,24 @@ function telaRecusa(tipo,id){
     '<p class="lead">Indique quem vai ficar no seu lugar'+(o.meus.length?' ('+esc(o.meus.join(", "))+')':'')+'. A pessoa recebe um e-mail para <strong>aceitar</strong> a substituição. Você continua na escala até ela aceitar.</p>'+
     '<form id="fRecusa" class="form" novalidate>'+
     '<label for="recSub">Quem vai te substituir (obrigatório)</label><select id="recSub">'+o.html+'</select>'+
+    '<input id="recConvNome" placeholder="Nome do convidado" autocomplete="off" hidden>'+
+    '<p class="hint" id="recConvHint" hidden>Convidados não têm conta no app: um líder aprova a troca.</p>'+
     (o.ehMin?'<p class="hint">Como você é o ministro deste culto, só aparecem outros ministros.</p>':'')+
     (o.vazio?'<p class="hint">Não há ninguém disponível para indicar. Fale com um líder.</p>':'')+
     '<label for="recMotivo">Motivo (obrigatório, só os líderes veem)</label><textarea id="recMotivo" required placeholder="Ex.: vou estar viajando nesse fim de semana."></textarea><p class="err" id="errRecusa"></p>'+
     '<div class="actions"><button class="btn nao-cheio" type="submit">'+ICO_TROCA_BTN+'Enviar pedido</button><button class="btn ghost" type="button" data-act="fechar">Voltar</button></div></form>');
+  $("#recSub").addEventListener("change",()=>{const v=$("#recSub").value; $("#recConvNome").hidden=v!=="c:__novo"; $("#recConvHint").hidden=v.indexOf("c:")!==0; if(v==="c:__novo") $("#recConvNome").focus();});
   $("#fRecusa").onsubmit=async e=>{e.preventDefault();
     const sub=$("#recSub").value, mot=$("#recMotivo").value.trim(), btn=e.submitter||$("#fRecusa button[type=submit]");
     if(!sub){$("#errRecusa").textContent="Escolha quem vai te substituir.";$("#recSub").focus();return;}
+    const conv=sub.indexOf("c:")===0?(sub==="c:__novo"?$("#recConvNome").value.trim():sub.slice(2)):"";
+    if(sub==="c:__novo"&&conv.length<2){$("#errRecusa").textContent="Digite o nome do convidado.";$("#recConvNome").focus();return;}
     if(mot.length<3){$("#errRecusa").textContent="Nos conte o motivo da ausência, é importante.";$("#recMotivo").focus();return;}
     ocupado(btn,"Enviando…");
     try{
-      const r=await chamar("responderPresenca",{tipo:tipo,id:id,resposta:"nao",motivo:mot,substitutoId:sub});
+      const r=await chamar("responderPresenca",conv?{tipo:tipo,id:id,resposta:"nao",motivo:mot,convidadoNome:conv}:{tipo:tipo,id:id,resposta:"nao",motivo:mot,substitutoId:sub});
       await carregar(); fecharSheet(); render();
-      toast("Pedido enviado para "+String(r.substituto).split(/\s+/)[0]+". Avisaremos quando ela(e) responder.");
+      toast(r.convidado?"Pedido enviado aos líderes para aprovar o convidado "+r.substituto+".":"Pedido enviado para "+String(r.substituto).split(/\s+/)[0]+". Avisaremos quando ela(e) responder.");
     }catch(err){$("#errRecusa").textContent=err.message;livre(btn);}
   };
 }
@@ -2041,10 +2143,11 @@ function formFeedback(c){
 }
 
 /* ----- Culto (líder) ----- */
+function valorCampo(id){const el=$("#"+id); if(!el) return ""; if(el.value==="__novo"){const i=$("#nv_"+id); return i?i.value.trim():"";} return el.value.trim();}
 function htmlEquipe(f,backs,dataRef){
-  return [0,1].map(i=>'<div><label for="f_backing'+i+'">Backing '+(i+1)+'</label>'+seletorMembro("f_backing"+i,backs[i],m=>m.cantor,"Cantores",dataRef)+'<span class="campo-aviso" id="av_f_backing'+i+'"></span></div>').join("")+
+  return [0,1].map(i=>'<div><label for="f_backing'+i+'">Backing '+(i+1)+'</label>'+seletorMembro("f_backing"+i,backs[i],m=>m.cantor,"Cantores",dataRef,true)+'<span class="campo-aviso" id="av_f_backing'+i+'"></span></div>').join("")+
     FUNCOES.filter(x=>x[0]!=="backing").map(x=>'<div><label for="f_'+x[0]+'">'+x[1]+'</label>'+
-      (SELECAO_TODOS[x[0]]?seletorMembro("f_"+x[0],f[x[0]],null,"",dataRef):seletorMembro("f_"+x[0],f[x[0]],m=>m.musico,"Músicos",dataRef))+'<span class="campo-aviso" id="av_f_'+x[0]+'"></span></div>').join("");
+      (SELECAO_TODOS[x[0]]?seletorMembro("f_"+x[0],f[x[0]],null,"",dataRef,x[0]!=="feedback"):seletorMembro("f_"+x[0],f[x[0]],m=>m.musico,"Músicos",dataRef,true))+'<span class="campo-aviso" id="av_f_'+x[0]+'"></span></div>').join("");
 }
 function avaliarFormCulto(){
   if(!$("#fCulto")) return;
@@ -2053,7 +2156,7 @@ function avaliarFormCulto(){
   campos.forEach(cp=>{
     const el=$("#"+cp[0]), av=$("#av_"+cp[0]); if(!el) return;
     el.classList.remove("al-indisp","al-dup"); av.textContent=""; av.className="campo-aviso";
-    const v=el.value.trim(); if(!v) return;
+    const v=valorCampo(cp[0]); if(!v) return;
     const m=membroPorNome(v), i=m&&indispDe(m.id,data);
     if(i){el.classList.add("al-indisp"); av.textContent="Indisponível"+(i.motivo?": "+i.motivo:""); av.className="campo-aviso indisp"; alertas.push('<strong>'+esc(v)+'</strong> marcou que não pode servir neste dia'+(i.motivo?'. Motivo: '+esc(i.motivo):'')+'.');}
     if(INSTRUMENTOS.indexOf(cp[1])>=0){const k=norm(v); (inst[k]=inst[k]||[]).push(cp);}
@@ -2061,7 +2164,7 @@ function avaliarFormCulto(){
   Object.keys(inst).forEach(k=>{
     if(inst[k].length<2) return;
     inst[k].forEach(cp=>{const el=$("#"+cp[0]),av=$("#av_"+cp[0]); el.classList.add("al-dup"); if(!av.textContent){av.textContent="Também em outra função"; av.className="campo-aviso dup";}});
-    alertas.push('<strong>'+esc($("#"+inst[k][0][0]).value)+'</strong> está em duas funções de instrumento: '+inst[k].map(cp=>cp[1]).join(" e ")+'.');
+    alertas.push('<strong>'+esc(valorCampo(inst[k][0][0]))+'</strong> está em duas funções de instrumento: '+inst[k].map(cp=>cp[1]).join(" e ")+'.');
   });
   const mid=$("#cMin").value, mi=mid&&indispDe(mid,data);
   if(mi) alertas.unshift('O ministro <strong>'+esc(nomeMinistro(mid))+'</strong> marcou que não pode servir neste dia'+(mi.motivo?'. Motivo: '+esc(mi.motivo):'')+'.');
@@ -2106,9 +2209,10 @@ function formCulto(c){
   });
   $("#dcCustom").addEventListener("change",e=>{const h=e.target.value.toLowerCase();if(!dc.includes(h)) alternar(h);});
   $("#fCulto").addEventListener("change",e=>{
+    if(e.target.tagName==="SELECT"&&$("#nv_"+e.target.id)){const nv=$("#nv_"+e.target.id); nv.hidden=e.target.value!=="__novo"; if(!nv.hidden) nv.focus();}
     if(e.target.id==="cData"){
-      const f2={}, b2=[$("#f_backing0").value,$("#f_backing1").value];
-      FUNCOES.forEach(x=>{if(x[0]!=="backing") f2[x[0]]=$("#f_"+x[0]).value;});
+      const f2={}, b2=[valorCampo("f_backing0"),valorCampo("f_backing1")];
+      FUNCOES.forEach(x=>{if(x[0]!=="backing") f2[x[0]]=valorCampo("f_"+x[0]);});
       $("#fgridEquipe").innerHTML=htmlEquipe(f2,b2,$("#cData").value);
     }
     avaliarFormCulto();
@@ -2122,9 +2226,11 @@ function formCulto(c){
   $("#fCulto").onsubmit=async e=>{
     e.preventDefault();
     const btn=e.submitter||$("#fCulto button[type=submit]");
-    const funcoes={}; FUNCOES.forEach(x=>{if(x[0]!=="backing") funcoes[x[0]]=$("#f_"+x[0]).value;});
-    funcoes.backing=[$("#f_backing0").value.trim(),$("#f_backing1").value.trim()].filter(v=>v&&!/^[-–—]+$/.test(v)).join(", ");
-    const dados={id:c.id||"",data:$("#cData").value,hora:$("#cHora").value,titulo:$("#cTitulo").value,ministroId:$("#cMin").value,funcoes:funcoes,dresscode:dc,obs:$("#cObs").value};
+    const funcoes={}; FUNCOES.forEach(x=>{if(x[0]!=="backing") funcoes[x[0]]=valorCampo("f_"+x[0]);});
+    funcoes.backing=[valorCampo("f_backing0"),valorCampo("f_backing1")].filter(v=>v&&!/^[-–—]+$/.test(v)).join(", ");
+    const novosConv=[...document.querySelectorAll("#fCulto select")].filter(sl=>sl.value==="__novo").map(sl=>valorCampo(sl.id));
+    if(novosConv.some(n=>n.length<2)){$("#errCulto").textContent="Digite o nome do convidado.";return;}
+    const dados={convidadosNovos:novosConv.filter((v,i,a)=>a.indexOf(v)===i),id:c.id||"",data:$("#cData").value,hora:$("#cHora").value,titulo:$("#cTitulo").value,ministroId:$("#cMin").value,funcoes:funcoes,dresscode:dc,obs:$("#cObs").value};
     ocupado(btn,"Salvando…");
     try{
       const r=await chamar("saveCulto",{culto:dados});
@@ -2135,18 +2241,21 @@ function formCulto(c){
 }
 
 const SELECAO_TODOS={torre:1,feedback:1};
-function seletorMembro(id,atual,filtro,rotulo,dataRef){
+function seletorMembro(id,atual,filtro,rotulo,dataRef,comConvidados){
   atual=String(atual||"").trim();
   const ordenados=S.membros.slice().sort((a,b)=>a.nome.localeCompare(b.nome));
   const ind=dataRef?ordenados.filter(m=>indispDe(m.id,dataRef)):[];
   const todos=ordenados.filter(m=>ind.indexOf(m)<0);
   const prim=filtro?todos.filter(filtro):[], outros=filtro?todos.filter(m=>!filtro(m)):[];
-  const conhecido=!atual||ordenados.some(m=>norm(m.nome)===norm(atual));
+  const convs=comConvidados?S.convidados.slice().sort((a,b)=>a.nome.localeCompare(b.nome)):[];
+  const conhecido=!atual||ordenados.some(m=>norm(m.nome)===norm(atual))||convs.some(c=>norm(c.nome)===norm(atual));
   const opts=l=>l.map(m=>'<option value="'+esc(m.nome)+'"'+(atual&&norm(m.nome)===norm(atual)?' selected':'')+'>'+esc(m.nome)+'</option>').join("");
   return '<select id="'+id+'"><option value="">–</option>'+
     (conhecido?'':'<option value="'+esc(atual)+'" selected>'+esc(atual)+'</option>')+
     (prim.length&&outros.length?'<optgroup label="'+esc(rotulo)+'">'+opts(prim)+'</optgroup><optgroup label="Outros membros">'+opts(outros)+'</optgroup>':opts(todos))+
-    (ind.length?'<optgroup label="Indisponíveis neste dia">'+ind.map(m=>{const i=indispDe(m.id,dataRef);return '<option value="'+esc(m.nome)+'"'+(atual&&norm(m.nome)===norm(atual)?' selected':'')+'>'+esc(m.nome)+(i&&i.motivo?' · '+esc(i.motivo):' · indisponível')+'</option>';}).join("")+'</optgroup>':'')+'</select>';
+    (ind.length?'<optgroup label="Indisponíveis neste dia">'+ind.map(m=>{const i=indispDe(m.id,dataRef);return '<option value="'+esc(m.nome)+'"'+(atual&&norm(m.nome)===norm(atual)?' selected':'')+'>'+esc(m.nome)+(i&&i.motivo?' · '+esc(i.motivo):' · indisponível')+'</option>';}).join("")+'</optgroup>':'')+
+    (comConvidados?'<optgroup label="Convidados (de fora)">'+convs.map(c=>'<option value="'+esc(c.nome)+'"'+(atual&&norm(c.nome)===norm(atual)?' selected':'')+'>'+esc(c.nome)+' · convidado</option>').join("")+'<option value="__novo">+ Novo convidado…</option></optgroup>':'')+'</select>'+
+    (comConvidados?'<input class="nv-conv" id="nv_'+id+'" placeholder="Nome do convidado" autocomplete="off" hidden>':'');
 }
 
 /* ----- Limpeza (líder) ----- */
@@ -2243,6 +2352,9 @@ async function telaMembros(editId){
     '<label class="check" for="memDc"><input type="checkbox" id="memDc"'+(ed&&ed.permDresscode?' checked':'')+'><span>Dresscode<small>Pode definir o dresscode dos cultos, sem mexer no resto da escala. Líderes já podem.</small></span></label>'+
     '<label class="check" for="memLider"><input type="checkbox" id="memLider"'+(ed&&ed.lider?' checked':'')+'><span>Líder<small>Monta a escala, a limpeza e cadastra membros.</small></span></label>'+
     '<p class="err" id="errMem"></p><div class="actions"><button class="btn" type="submit">'+(ed?'Salvar alterações':'Adicionar membro')+'</button>'+(ed?'<button class="btn ghost" type="button" data-act="membros">Cancelar</button>':'')+'</div></fieldset></form>'+
+    '<div class="sec" style="margin-top:14px"><h3>Convidados salvos</h3>'+
+      (S.convidados.length?'<ul class="min-list">'+S.convidados.slice().sort((a,b)=>a.nome.localeCompare(b.nome)).map(cv=>'<li>'+avatarPessoa(cv.nome)+'<span class="nm">'+esc(cv.nome)+'<small>Convidado de fora da igreja</small></span><button class="btn ghost danger sm" data-act="delConv" data-id="'+esc(cv.id)+'">Remover</button></li>').join("")+'</ul>'
+        :'<p class="hint" style="margin:0">Nenhum convidado ainda. Eles são salvos quando você escala um "Novo convidado" num culto ou aprova um pedido.</p>')+'</div>'+
     '<div class="sec" style="margin-top:14px"><h3>'+lista.length+(lista.length===1?' membro':' membros')+' · '+lista.filter(m=>m.cantor).length+' cantores · '+lista.filter(m=>m.musico).length+' músicos</h3>'+
     '<div class="filtros" role="group" aria-label="Filtrar membros">'+[["todos","Todos"],["cantor","Cantores"],["musico","Músicos"],["ministro","Ministros"],["lider","Líderes"]].map(x=>'<button type="button" data-filtro="'+x[0]+'" aria-pressed="'+(filtroMembros===x[0])+'">'+x[1]+'</button>').join("")+'</div>'+
     '<ul class="min-list">'+lista.filter(m=>filtroMembros==="todos"||m[filtroMembros]).map(m=>'<li>'+avatar(m)+'<span class="nm">'+esc(m.nome)+badges(m)+'<small class="usr">@'+esc(m.usuario)+' · '+(m.email?esc(m.email):'<span style="color:var(--warn)">sem e-mail</span>')+'</small></span>'+
@@ -2349,14 +2461,15 @@ document.addEventListener("click",async e=>{
       copiar("*Escala de Limpeza — "+MESES[S.mes]+" "+S.ano+"*\n\n"+l.map(x=>{const d=parseData(x.data);return pad(d.getDate())+"/"+pad(d.getMonth()+1)+" ("+diaSemana(d)+"): "+x.responsaveis;}).join("\n"));
       break;
     }
-    case "excluirCulto": case "delMembro": case "delLimpeza": case "delEvento": {
+    case "excluirCulto": case "delMembro": case "delLimpeza": case "delEvento": case "delConv": {
       if(!b.classList.contains("armado")){b.classList.add("armado");b.dataset.txt=b.textContent;b.textContent="Toque de novo para excluir";setTimeout(()=>{if(b.isConnected&&!b.disabled){b.classList.remove("armado");b.textContent=b.dataset.txt;}},4000);break;}
       ocupado(b,"Excluindo…");
       try{
-        await chamar({excluirCulto:"deleteCulto",delMembro:"deleteMembro",delLimpeza:"deleteLimpeza",delEvento:"deleteEvento"}[act],{id:id});
+        await chamar({excluirCulto:"deleteCulto",delMembro:"deleteMembro",delLimpeza:"deleteLimpeza",delEvento:"deleteEvento",delConv:"deleteConvidado"}[act],{id:id});
         await carregar();
         if(act==="excluirCulto"){fecharSheet();toast("Culto excluído");}
         else if(act==="delMembro"){membrosCompletos=[];telaMembros();toast("Membro excluído");}
+        else if(act==="delConv"){telaMembros("__lista");toast("Convidado removido da lista");}
         else toast(act==="delEvento"?"Evento excluído":"Limpeza excluída");
       }catch(err){toast(err.message);livre(b);b.classList.remove("armado");}
       break;
