@@ -386,6 +386,36 @@ button.ag-item:hover{border-color:var(--flame)}
 .info-mes strong{color:var(--brand)}
 .aviso-bar.rasc .aviso-ico{background:var(--warn-soft);color:var(--warn)}
 .link-btn.armado{color:var(--danger)}
+.card-aviso{display:flex;gap:9px;align-items:flex-start;margin:0 14px 10px;border:1px solid #f3b7b1;background:var(--flame-soft);border-radius:12px;padding:9px 11px;font-size:13px;line-height:1.4;color:#5c0b10;text-align:left}
+.card-aviso svg{width:17px;height:17px;flex:none;color:var(--danger);margin-top:1px}
+.card-aviso em{display:block;font-style:normal;font-size:12px;color:#7a3a3d;margin-top:2px}
+.pt-troca{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:700;color:var(--sky);margin-top:1px}
+.pt-troca svg{width:12px;height:12px;flex:none}
+.min-info .pt-troca{font-size:12px}
+.pres-nm .pt-troca{display:flex}
+.selo-troca{position:absolute;left:-4px;top:-4px;width:18px;height:18px;border-radius:50%;background:var(--sky);color:#fff;border:2px solid #fff;display:grid;place-items:center;box-sizing:border-box}
+.selo-troca svg{width:10px;height:10px}
+.av-wrap.trocado{box-shadow:0 0 0 2px var(--sky)}
+.pessoa.trocada{display:inline-flex;align-items:center;gap:5px;background:var(--sky-soft);color:#1f6aa5}
+.pessoa.trocada svg{width:13px;height:13px}
+.subs-hist{margin-top:12px;background:var(--sky-soft);border-radius:12px;padding:10px 12px}
+.subs-hist h4{margin:0 0 6px;display:flex;align-items:center;gap:6px;font-family:var(--f-display);font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#1f6aa5}
+.subs-hist h4 svg{width:14px;height:14px}
+.subs-hist p{margin:4px 0 0;font-size:13.5px;color:var(--ink)}
+.subs-hist small{display:block;color:var(--muted);font-size:12px}
+.mini-st{display:inline-grid;place-items:center;width:15px;height:15px;border-radius:50%;color:#fff;margin-left:6px;vertical-align:-2px}
+.mini-st svg{width:9px;height:9px}
+.mini-st.ok{background:var(--ok)}.mini-st.nao{background:var(--flame)}.mini-st.esp{background:#9aa3bb}
+.limp-pres{padding:0 14px 12px}
+.limp-pres .pres-btns,.limp-pres .pres-st{margin-top:0}
+.pt-troca.pend{color:var(--warn)}
+.pt-troca.rec{color:var(--danger)}
+.pessoa.pedindo{background:var(--warn-soft);color:var(--warn)}
+.pres-st.pend{background:var(--warn-soft);color:#7a4300}
+.pres-st.col{flex-direction:column;align-items:stretch}
+.pres-st svg{width:15px;height:15px;flex:none}
+.ag-bloco.pedido{border-color:#9fd0b0;background:#f3fbf6}
+.ag-sec.pedidos{color:var(--ok)}
 .min-list .usr{font-family:var(--f-mono);font-size:12px;color:var(--muted);font-weight:500}
 
 /* Tela de login: a própria escala desfocada ao fundo, cartão à frente */
@@ -493,7 +523,7 @@ const CONFIG = {
   API_URL: "https://script.google.com/macros/s/AKfycbxrhX4edbA7aVQrjiIY4e7g8OeeX_7A9HvKmPRTUlxskJDYWYRQ8M6rKq8xc8HBBHF8/exec",
   NOME: "Ministério Avivah"
 };
-const VERSAO_APP = "2026.10.21-11"; // muda a cada versão enviada; não precisa editar
+const VERSAO_APP = "2026.10.22-4"; // muda a cada versão enviada; não precisa editar
 /* ======================================================== */
 
 const MESES=["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
@@ -555,7 +585,7 @@ function normalizarFuncoes(o){
 function normalizarDresscode(l){
   return (Array.isArray(l)?l:[]).map(x=>String(x).trim().toLowerCase()).filter(x=>HEX_RE.test(x)).filter((x,i,a)=>a.indexOf(x)===i).slice(0,6);
 }
-const TABELAS_POR_ACAO={publicarMes:["Avisos"],despublicarMes:["Avisos"],salvarDresscode:["Cultos"],salvarIndisp:["Membros"],responderPresenca:["Cultos","Limpeza"],salvarEmail:["Membros"],avisarEquipe:["Avisos"],trocarSenha:["Membros"],saveMembro:["Membros"],deleteMembro:["Membros"],saveCulto:["Cultos"],deleteCulto:["Cultos"],
+const TABELAS_POR_ACAO={responderPedido:["Cultos","Limpeza"],publicarMes:["Avisos"],despublicarMes:["Avisos"],salvarDresscode:["Cultos"],salvarIndisp:["Membros"],responderPresenca:["Cultos","Limpeza"],salvarEmail:["Membros"],avisarEquipe:["Avisos"],trocarSenha:["Membros"],saveMembro:["Membros"],deleteMembro:["Membros"],saveCulto:["Cultos"],deleteCulto:["Cultos"],
   saveRepertorio:["Cultos"],saveFeedback:["Cultos"],saveLimpeza:["Limpeza"],deleteLimpeza:["Limpeza"],saveEvento:["Eventos"],deleteEvento:["Eventos"]};
 function fotoVersao(f){f=String(f||"");return f?f.length.toString(36)+f.slice(-12):"";}
 function mesPublicado(db,data){const mes=String(data).slice(0,7);return (db.avisos||[]).some(a=>a.mes===mes&&a.publicado);}
@@ -572,8 +602,8 @@ function usuarioDoToken(db,token,env){
 }
 function dadosPublicos(db){
   return {membros:(db.membros||[]).map(m=>({id:m.id,nome:m.nome,ministro:!!m.ministro,lider:!!m.lider,cantor:!!m.cantor,musico:!!m.musico,fotoV:fotoVersao(m.foto)})),
-    cultos:(db.cultos||[]).map(c=>mesPublicado(db,c.data)?Object.assign({},c,{presencas:semMotivo(c.presencas)}):redigirCulto(c)),
-    limpeza:(db.limpeza||[]).map(x=>mesPublicado(db,x.data)?Object.assign({},x,{presencas:semMotivo(x.presencas)}):redigirLimpeza(x)),
+    cultos:(db.cultos||[]).map(c=>mesPublicado(db,c.data)?Object.assign({},c,{presencas:semMotivo(c.presencas),substituicoes:subsPublicas(c.substituicoes),pedidos:pedidosPublicos(c.pedidos)}):redigirCulto(c)),
+    limpeza:(db.limpeza||[]).map(x=>mesPublicado(db,x.data)?Object.assign({},x,{presencas:semMotivo(x.presencas),substituicoes:subsPublicas(x.substituicoes),pedidos:pedidosPublicos(x.pedidos)}):redigirLimpeza(x)),
     eventos:db.eventos||[],avisos:(db.avisos||[]).map(a=>({mes:a.mes,enviadoEm:a.enviadoEm,enviadoPor:a.enviadoPor,publicado:!!a.publicado}))};
 }
 function fotosDe(db){const o={};(db.membros||[]).forEach(m=>{if(m.foto) o[m.id]=m.foto;});return o;}
@@ -650,12 +680,66 @@ function recusou(obj,id){const p=(obj.presencas||{})[id];return !!(p&&p.s==="nao
 function semMotivo(p){const o={};Object.keys(p||{}).forEach(k=>{if(p[k]&&p[k].s) o[k]={s:p[k].s};});return o;}
 function idsEscalados(db,obj,tipo){return (db.membros||[]).filter(m=>tipo==="limpeza"?nomeNaLista(obj.responsaveis,m.nome):papeisDe(obj,m).length>0).map(m=>m.id);}
 function podarPresencas(db,obj,tipo){const ok=idsEscalados(db,obj,tipo), o={};Object.keys(obj.presencas||{}).forEach(k=>{if(ok.indexOf(k)>=0) o[k]=obj.presencas[k];});return o;}
-function emailRecusa(m,alvo,tipo,funcao,motivo,link,nomeMin){
+function emailRecusa(m,alvo,tipo,funcao,motivo,link,nomeMin,sub){
   const nome=String(m.nome).split(/\s+/)[0], quando=dataBR(alvo.data)+(alvo.hora?' · '+alvo.hora:'');
   const corpo='<p style="margin:0 0 8px"><strong>'+escH(quando)+'</strong><br>'+escH(tipo==="limpeza"?"Escala de limpeza":alvo.titulo)+' · Função: '+escH(funcao)+'</p>'+
     (motivo?'<p style="margin:0 0 4px;color:#59627d">Motivo: '+escH(motivo)+'</p>':'')+
-    '<p style="margin:12px 0 0">Abra o app para escolher quem vai substituir.</p>';
-  return {assunto:nome+" não vai conseguir servir em "+dataBR(alvo.data),html:emailBase(m.nome+" não vai conseguir servir",corpo,link,nomeMin)};
+    (sub?'<p style="margin:12px 0 0;background:#e0f0fb;padding:10px 12px;border-radius:10px">Substituto indicado: <strong>'+escH(sub.nome)+'</strong>. A troca vale assim que '+escH(String(sub.nome).split(/\s+/)[0])+' aceitar; você recebe outro e-mail com a resposta.</p>'
+      :'<p style="margin:12px 0 0">Abra o app para escolher quem vai substituir.</p>');
+  return {assunto:nome+" não vai conseguir servir em "+dataBR(alvo.data)+(sub?" · pediu a "+String(sub.nome).split(/\s+/)[0]:""),html:emailBase(m.nome+" não vai conseguir servir",corpo,link,nomeMin)};
+}
+function trocarNome(txt,de,para){
+  const n=norm(de), p=n.split(/\s+/)[0];
+  return String(txt||"").split(/\s*,\s*|\s+e\s+/).filter(Boolean).map(x=>{const k=norm(x);return (k===n||k===p)?para:x;}).join(", ");
+}
+function pedidosPublicos(l){return (Array.isArray(l)?l:[]).map(x=>({id:x.id,de:x.de,deNome:x.deNome,para:x.para,paraNome:x.paraNome,funcoes:x.funcoes||[],status:x.status,em:x.em}));}
+function pedidoPendente(alvo,deId){return (alvo.pedidos||[]).filter(p=>p.de===deId&&p.status==="pendente").slice(-1)[0]||null;}
+function cancelarPedidos(alvo,deId){(alvo.pedidos||[]).forEach(p=>{if(p.de===deId&&p.status==="pendente"){p.status="cancelado";p.respondidoEm=new Date().toISOString();}});}
+function validarSubstituto(db,alvo,tipo,de,sub){
+  if(!sub) throw new Error("Escolha quem vai te substituir.");
+  if(sub.id===de.id) throw new Error("Escolha outra pessoa para te substituir.");
+  const jaEsc=tipo==="culto"?papeisDe(alvo,sub).length>0:nomeNaLista(alvo.responsaveis,sub.nome);
+  if(jaEsc) throw new Error(sub.nome+" já está escalado(a) neste "+(tipo==="culto"?"culto":"dia")+". Escolha outra pessoa.");
+  if((sub.indisp||[]).some(i=>i.data===alvo.data)) throw new Error(sub.nome+" marcou que não pode servir neste dia. Escolha outra pessoa.");
+  if(tipo==="culto"&&alvo.ministroId===de.id&&!sub.ministro) throw new Error("Quem sai é o ministro do culto: o substituto precisa ser outro ministro.");
+}
+function aplicarTroca(db,alvo,tipo,de,sub,funcoes,motivo){
+  if(tipo==="culto"){
+    if(alvo.ministroId===de.id) alvo.ministroId=sub.id;
+    const f=alvo.funcoes||{};
+    FUNCOES.forEach(x=>{if(nomeNaLista(f[x[0]],de.nome)) f[x[0]]=trocarNome(f[x[0]],de.nome,sub.nome);});
+    alvo.funcoes=f;
+  } else alvo.responsaveis=trocarNome(alvo.responsaveis,de.nome,sub.nome);
+  alvo.presencas=alvo.presencas||{};
+  delete alvo.presencas[de.id];
+  alvo.presencas[sub.id]={s:"ok",motivo:"",em:new Date().toISOString()};
+  alvo.substituicoes=(alvo.substituicoes||[]).concat([{de:de.id,deNome:de.nome,para:sub.id,paraNome:sub.nome,funcoes:funcoes,motivo:motivo,em:new Date().toISOString()}]);
+}
+function emailPedido(sub,de,alvo,tipo,funcao,link,pid,nomeMin,lembrete){
+  const quando=dataBR(alvo.data)+(alvo.hora?' · '+alvo.hora:'');
+  const url=link?link+(link.indexOf("?")>=0?"&":"?")+"pedido="+encodeURIComponent(pid):"";
+  const corpo='<p style="margin:0 0 8px">Olá, '+escH(String(sub.nome).split(/\s+/)[0])+'! '+(lembrete?'Lembrete: ':'')+'<strong>'+escH(de.nome)+'</strong> não vai conseguir servir e pediu para você ficar no lugar dele(a).</p>'+
+    tabelaEmail([linhaEmail(escH(quando)+' — '+escH(tipo==="limpeza"?"Escala de limpeza":alvo.titulo),'Função: <strong>'+escH(funcao)+'</strong>')])+
+    '<p style="margin:14px 0 0;color:#59627d">A troca só vale depois que você aceitar. Até lá, '+escH(String(de.nome).split(/\s+/)[0])+' continua na escala.</p>'+
+    (url?'<p style="margin:16px 0 4px"><a href="'+escH(url)+'" style="display:inline-block;background:#25784a;color:#ffffff;text-decoration:none;font-weight:bold;padding:12px 22px;border-radius:999px">Responder ao pedido</a></p>':'');
+  return {assunto:(lembrete?"Lembrete: ":"")+String(de.nome).split(/\s+/)[0]+" pediu para você substituí-lo(a) em "+dataBR(alvo.data),html:emailBase("Pedido de substituição",corpo,"",nomeMin)};
+}
+function emailRespostaPedido(dest,ped,alvo,tipo,aceitou,link,nomeMin,paraLider){
+  const quando=dataBR(alvo.data)+(alvo.hora?' · '+alvo.hora:'');
+  const sub=String(ped.paraNome).split(/\s+/)[0], de=String(ped.deNome).split(/\s+/)[0];
+  const corpo='<p style="margin:0 0 8px">'+(paraLider?'':'Olá, '+escH(String(dest.nome).split(/\s+/)[0])+'! ')+
+    (aceitou?'<strong>'+escH(ped.paraNome)+'</strong> aceitou substituir <strong>'+escH(ped.deNome)+'</strong>. A escala já foi atualizada.'
+      :'<strong>'+escH(ped.paraNome)+'</strong> não pode substituir <strong>'+escH(ped.deNome)+'</strong>.'+(paraLider?'':' Abra o app e indique outra pessoa.'))+'</p>'+
+    tabelaEmail([linhaEmail(escH(quando)+' — '+escH(tipo==="limpeza"?"Escala de limpeza":alvo.titulo),'Função: <strong>'+escH((ped.funcoes||[]).join(", "))+'</strong>')]);
+  return {assunto:aceitou?sub+" aceitou substituir "+de+" em "+dataBR(alvo.data):sub+" não pode substituir "+de+" em "+dataBR(alvo.data),html:emailBase(aceitou?"Substituição confirmada":"Substituição recusada",corpo,link,nomeMin)};
+}
+function subsPublicas(l){return (Array.isArray(l)?l:[]).map(x=>({de:x.de,deNome:x.deNome,para:x.para,paraNome:x.paraNome,funcoes:x.funcoes||[],em:x.em}));}
+function emailSubstituto(sub,de,alvo,tipo,funcao,link,nomeMin){
+  const quando=dataBR(alvo.data)+(alvo.hora?' · '+alvo.hora:'');
+  const corpo='<p style="margin:0 0 8px">Olá, '+escH(String(sub.nome).split(/\s+/)[0])+'! <strong>'+escH(de.nome)+'</strong> não vai conseguir servir e indicou você para o lugar dele(a).</p>'+
+    tabelaEmail([linhaEmail(escH(quando)+' — '+escH(tipo==="limpeza"?"Escala de limpeza":alvo.titulo),'Função: <strong>'+escH(funcao)+'</strong>')])+
+    '<p style="margin:14px 0 0;color:#59627d">Abra o app e confirme sua presença na sua agenda. Se não puder, toque em <strong>Não vou conseguir</strong> e indique outra pessoa.</p>';
+  return {assunto:"Você vai substituir "+String(de.nome).split(/\s+/)[0]+" em "+dataBR(alvo.data),html:emailBase("Você foi indicado(a) como substituto",corpo,link,nomeMin)};
 }
 function emailConfirmar(m,dia,itens,link,nomeMin){
   const corpo='<p style="margin:0 0 6px">Olá, '+escH(String(m.nome).split(/\s+/)[0])+'! Você está na escala de <strong>'+escH(dataBR(dia))+'</strong> e ainda não confirmou presença:</p>'+
@@ -675,6 +759,10 @@ function rotinaDoDia(db,env){
     (db.limpeza||[]).filter(x=>x.data===alvoDia&&mesPublicado(db,x.data)&&nomeNaLista(x.responsaveis,m.nome)&&!(x.presencas&&x.presencas[m.id])).forEach(()=>itens.push({titulo:"Escala de limpeza",hora:"",funcao:"Limpeza"}));
     if(itens.length){const e=emailConfirmar(m,alvoDia,itens,link,nomeMin); env.enviar(m.email,e.assunto,e.html); enviados.confirmar++;}
   });
+  [["culto",db.cultos||[]],["limpeza",db.limpeza||[]]].forEach(par=>par[1].filter(a=>a.data===alvoDia&&mesPublicado(db,a.data)).forEach(a=>(a.pedidos||[]).filter(p=>p.status==="pendente").forEach(p=>{
+    const sub=(db.membros||[]).find(x=>x.id===p.para), de=(db.membros||[]).find(x=>x.id===p.de);
+    if(sub&&de&&sub.email){const e=emailPedido(sub,de,a,par[0],(p.funcoes||[]).join(", "),link,p.id,nomeMin,true); env.enviar(sub.email,e.assunto,e.html); enviados.confirmar++;}
+  })));
   (db.membros||[]).forEach(m=>{if(!m.email) return; const e=emailHoje(db,m,hoje,link,nomeMin); if(e){env.enviar(m.email,e.assunto,e.html);enviados.hoje++;}});
   db.avisos.forEach(a=>{
     if(!a.enviadoDia||!a.publicado) return;
@@ -746,6 +834,9 @@ function processar(db,req,env){
       db.membros.forEach(m=>{if(m.indisp&&m.indisp.length) indisp[m.id]=m.indisp;});
       db.cultos.forEach(c=>Object.keys(c.presencas||{}).forEach(id=>{const p=c.presencas[id]; if(p&&p.s==="nao"&&p.motivo) motivos["c:"+c.id+":"+id]=p.motivo;}));
       db.limpeza.forEach(x=>Object.keys(x.presencas||{}).forEach(id=>{const p=x.presencas[id]; if(p&&p.s==="nao"&&p.motivo) motivos["l:"+x.id+":"+id]=p.motivo;}));
+      db.cultos.forEach(c=>(c.substituicoes||[]).forEach(sb=>{if(sb.motivo) motivos["s:"+c.id+":"+sb.de+":"+sb.para]=sb.motivo;}));
+      db.cultos.concat(db.limpeza).forEach(a=>(a.pedidos||[]).forEach(p=>{if(p.motivo) motivos["p:"+p.id]=p.motivo;}));
+      db.limpeza.forEach(x=>(x.substituicoes||[]).forEach(sb=>{if(sb.motivo) motivos["s:"+x.id+":"+sb.de+":"+sb.para]=sb.motivo;}));
       return {indisp:indisp,motivos:motivos,rascunhos:rascunhosDe(db)};
     }
     case "responderPresenca":{
@@ -758,15 +849,46 @@ function processar(db,req,env){
       if(!mesPublicado(db,alvo.data)) throw new Error("A escala deste mês ainda não foi publicada.");
       if(alvo.data<env.hoje()) throw new Error("Esse compromisso já passou.");
       alvo.presencas=alvo.presencas||{};
-      const antes=alvo.presencas[eu.id], r=req.resposta;
-      if(r!=="ok"&&r!=="nao"){delete alvo.presencas[eu.id]; return {};}
-      if(r==="nao"&&String(req.motivo||"").trim().length<3) throw new Error("Nos conte o motivo da ausência, é importante.");
-      alvo.presencas[eu.id]={s:r,motivo:r==="nao"?String(req.motivo||"").trim().slice(0,200):"",em:new Date().toISOString()};
-      if(r==="nao"&&!(antes&&antes.s==="nao")){
-        const e=emailRecusa(eu,alvo,tipo,funcoes.join(", "),alvo.presencas[eu.id].motivo,env.link(),env.nomeMin);
-        db.membros.filter(m=>m.lider&&m.email&&m.id!==eu.id).forEach(m=>{try{env.enviar(m.email,e.assunto,e.html);}catch(x){}});
-      }
-      return {};
+      const r=req.resposta;
+      if(r!=="ok"&&r!=="nao"){delete alvo.presencas[eu.id]; cancelarPedidos(alvo,eu.id); return {};}
+      if(r==="ok"){alvo.presencas[eu.id]={s:"ok",motivo:"",em:new Date().toISOString()}; cancelarPedidos(alvo,eu.id); return {};}
+      const motivo=String(req.motivo||"").trim().slice(0,200);
+      if(motivo.length<3) throw new Error("Nos conte o motivo da ausência, é importante.");
+      const sub=db.membros.find(x=>x.id===req.substitutoId);
+      validarSubstituto(db,alvo,tipo,eu,sub);
+      cancelarPedidos(alvo,eu.id);
+      alvo.presencas[eu.id]={s:"nao",motivo:motivo,em:new Date().toISOString()};
+      const ped={id:uid(),de:eu.id,deNome:eu.nome,para:sub.id,paraNome:sub.nome,funcoes:funcoes,motivo:motivo,status:"pendente",em:new Date().toISOString(),respondidoEm:""};
+      alvo.pedidos=(alvo.pedidos||[]).concat([ped]);
+      const e=emailRecusa(eu,alvo,tipo,funcoes.join(", "),motivo,env.link(),env.nomeMin,sub);
+      db.membros.filter(m=>m.lider&&m.email&&m.id!==eu.id&&m.id!==sub.id).forEach(m=>{try{env.enviar(m.email,e.assunto,e.html);}catch(x){}});
+      if(sub.email){const es=emailPedido(sub,eu,alvo,tipo,funcoes.join(", "),env.link(),ped.id,env.nomeMin,false); try{env.enviar(sub.email,es.assunto,es.html);}catch(x){}}
+      return {substituto:sub.nome,pendente:true};
+    }
+    case "responderPedido":{
+      exigirLogin();
+      let alvo=null, tipo="culto", ped=null;
+      db.cultos.forEach(c=>(c.pedidos||[]).forEach(p=>{if(p.id===req.pedidoId){alvo=c;tipo="culto";ped=p;}}));
+      db.limpeza.forEach(x=>(x.pedidos||[]).forEach(p=>{if(p.id===req.pedidoId){alvo=x;tipo="limpeza";ped=p;}}));
+      if(!ped) throw new Error("Pedido não encontrado. Atualize a página.");
+      if(ped.para!==eu.id) throw new Error("Este pedido de substituição não é para você.");
+      if(ped.status!=="pendente") throw new Error(ped.status==="aceito"?"Você já aceitou este pedido.":"Este pedido não está mais valendo.");
+      if(alvo.data<env.hoje()) throw new Error("Esse compromisso já passou.");
+      const de=db.membros.find(x=>x.id===ped.de);
+      const deAinda=de&&(tipo==="culto"?papeisDe(alvo,de).length>0:nomeNaLista(alvo.responsaveis,de.nome));
+      if(!deAinda){ped.status="cancelado"; ped.respondidoEm=new Date().toISOString(); throw new Error("A escala mudou e este pedido não vale mais.");}
+      const aceitar=!!req.aceitar;
+      if(aceitar){
+        validarSubstituto(db,alvo,tipo,de,eu);
+        aplicarTroca(db,alvo,tipo,de,eu,ped.funcoes,ped.motivo);
+        ped.status="aceito";
+      } else ped.status="recusado";
+      ped.respondidoEm=new Date().toISOString();
+      const link=env.link();
+      if(de.email){const e1=emailRespostaPedido(de,ped,alvo,tipo,aceitar,link,env.nomeMin,false); try{env.enviar(de.email,e1.assunto,e1.html);}catch(x){}}
+      const e2=emailRespostaPedido(null,ped,alvo,tipo,aceitar,link,env.nomeMin,true);
+      db.membros.filter(m=>m.lider&&m.email&&m.id!==eu.id&&m.id!==de.id).forEach(m=>{try{env.enviar(m.email,e2.assunto,e2.html);}catch(x){}});
+      return {aceito:aceitar};
     }
     case "salvarEmail":{
       exigirLogin();
@@ -850,6 +972,8 @@ function processar(db,req,env){
         equipe:"",obs:String(c.obs||"").trim(),funcoes:normalizarFuncoes(c.funcoes),dresscode:normalizarDresscode(c.dresscode),
         musicas:atual.musicas||[],feedback:atual.feedback||null,presencas:atual.presencas||{},atualizadoEm:new Date().toISOString()};
       novo.presencas=podarPresencas(db,novo,"culto");
+      novo.pedidos=(atual.pedidos||[]).map(p=>{const d=db.membros.find(x=>x.id===p.de);return p.status==="pendente"&&!(d&&papeisDe(novo,d).length)?Object.assign({},p,{status:"cancelado"}):p;});
+      novo.substituicoes=(atual.substituicoes||[]).filter(sb=>{const m=db.membros.find(x=>x.id===sb.para);return m&&papeisDe(novo,m).length>0;});
       if(i>=0) db.cultos[i]=novo; else db.cultos.push(novo);
       return {culto:novo};
     }
@@ -880,7 +1004,9 @@ function processar(db,req,env){
       const id=it.id||uid();
       const i=db.limpeza.findIndex(x=>x.id===id);
       const novo={id:id,data:it.data,responsaveis:String(it.responsaveis).trim(),presencas:i>=0?(db.limpeza[i].presencas||{}):{}};
-      novo.presencas=podarPresencas(db,novo,"limpeza"); if(i>=0) db.limpeza[i]=novo; else db.limpeza.push(novo);
+      novo.presencas=podarPresencas(db,novo,"limpeza");
+      novo.pedidos=(i>=0?(db.limpeza[i].pedidos||[]):[]).map(p=>{const d=db.membros.find(x=>x.id===p.de);return p.status==="pendente"&&!(d&&nomeNaLista(novo.responsaveis,d.nome))?Object.assign({},p,{status:"cancelado"}):p;});
+      novo.substituicoes=(i>=0?(db.limpeza[i].substituicoes||[]):[]).filter(sb=>{const m=db.membros.find(x=>x.id===sb.para);return m&&nomeNaLista(novo.responsaveis,m.nome);}); if(i>=0) db.limpeza[i]=novo; else db.limpeza.push(novo);
       return {item:novo};
     }
     case "deleteLimpeza": exigirLider(); db.limpeza=db.limpeza.filter(x=>x.id!==req.id); return {};
@@ -908,7 +1034,7 @@ function hashDemo(t){let h1=0xdeadbeef,h2=0x41c6ce57;for(let i=0;i<t.length;i++)
 const ENVIOS_DEMO=[];
 const ENV_DEMO={hash:t=>hashDemo("demo-avivah|"+t),enviar:(para,assunto)=>{ENVIOS_DEMO.push({para:para,assunto:assunto});},
   hoje:()=>hojeStr(),link:()=>String(location.href).split("#")[0].split("?")[0],nomeMin:"Ministério Avivah"};
-const DEMO_KEY="louvor_demo_v10";
+const DEMO_KEY="louvor_demo_v12";
 let demoMem=null;
 function seed(){
   const now=new Date(), y=now.getFullYear(), m=now.getMonth();
@@ -953,6 +1079,10 @@ function seed(){
   if(cultos[0]) cultos[0].feedback={autor:"Pablo",bem:"Abertura bem ensaiada e backing muito afinado em Lugar Secreto.\nTransição para a ministração da Palavra foi tranquila.",melhorar:"Retorno do teclado estava baixo no início.\nCombinar antes a passagem para a música da oferta.",em:new Date(y,m,Number(cultos[0].data.slice(8)),21,30).toISOString()};
   if(cultos[6]) cultos[6].presencas={m2:{s:"ok"},p13:{s:"ok"},p12:{s:"ok"},p7:{s:"ok"},m3:{s:"ok"},p0:{s:"nao",motivo:"Viagem em família"}};
   if(cultos[7]) cultos[7].presencas={p2:{s:"ok"}};
+  if(cultos[6]){cultos[6].funcoes.torre="Raquel"; delete cultos[6].presencas.p0; cultos[6].presencas.p6={s:"ok"};
+    cultos[6].substituicoes=[{de:"p0",deNome:"Kelly",para:"p6",paraNome:"Raquel",funcoes:["Torre"],motivo:"Viagem em família",em:new Date().toISOString()}];}
+  if(cultos[7]){cultos[7].presencas.p9={s:"nao",motivo:"Prova na faculdade"};
+    cultos[7].pedidos=[{id:"pd1",de:"p9",deNome:"Jacqueline",para:"p1",paraNome:"Nathalia",funcoes:["Backing","Feedback"],motivo:"Prova na faculdade",status:"pendente",em:new Date().toISOString(),respondidoEm:""}];}
   const duplas=["Kelly e Nathalia","Daniel e Davidson","Michelle e Raquel","Felipe e Carlos","Yara e Marta"];
   const limpeza=[]; let q=0;
   for(let d=1;d<=31;d++){const dt=new Date(y,m,d); if(dt.getMonth()!==m) break; if(dt.getDay()!==6) continue;
@@ -993,18 +1123,23 @@ const localApi={
     return JSON.parse(JSON.stringify(r));
   }
 };
+async function lerResposta(r){
+  const t=await r.text();
+  try{return JSON.parse(t);}
+  catch(e){throw new Error("O servidor do Google respondeu com uma página de erro em vez dos dados. Peça ao responsável para conferir a implantação do Apps Script (permissões e nova versão).");}
+}
 const remoteApi={
   async list(){
     const r=await fetch(CONFIG.API_URL+"?action=list&t="+Date.now());
-    const j=await r.json(); if(!j.ok) throw new Error(j.erro||"Erro ao carregar."); return j.dados;
+    const j=await lerResposta(r); if(!j.ok) throw new Error(j.erro||"Erro ao carregar."); return j.dados;
   },
   async fotos(){
     const r=await fetch(CONFIG.API_URL+"?action=fotos&t="+Date.now());
-    const j=await r.json(); if(!j.ok) throw new Error(j.erro||"Erro ao carregar as fotos."); return j.fotos||{};
+    const j=await lerResposta(r); if(!j.ok) throw new Error(j.erro||"Erro ao carregar as fotos."); return j.fotos||{};
   },
   async call(action,payload){
     const r=await fetch(CONFIG.API_URL,{method:"POST",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify(Object.assign({action:action},payload))});
-    const j=await r.json(); if(!j.ok) throw new Error(j.erro||"Não foi possível salvar."); return j;
+    const j=await lerResposta(r); if(!j.ok) throw new Error(j.erro||"Não foi possível salvar."); return j;
   }
 };
 const api=CONFIG.API_URL?remoteApi:localApi;
@@ -1131,7 +1266,7 @@ function render(){
     el.innerHTML='<div class="vazio"><p class="vazio-t">Nenhum culto escalado em '+MESES[S.mes].toLowerCase()+'</p><p>'+(ehLider()?'Toque em “Novo culto” para lançar a escala.':'A escala deste mês ainda não foi lançada.')+'</p></div>';
     return;
   }
-  el.innerHTML=S.aba==="escala"?(ehLider()?barraAviso()+avisoMesLider(lista):infoRascunho(lista))+'<div class="grade">'+lista.map(cardCulto).join("")+'</div>':viewRepertorios(lista);
+  el.innerHTML=S.aba==="escala"?(ehLider()?barraAviso():infoRascunho(lista))+'<div class="grade">'+lista.map(cardCulto).join("")+'</div>':viewRepertorios(lista);
 }
 function indispDe(id,data){return ((S.lid.indisp||{})[id]||[]).find(i=>i.data===data)||null;}
 function presencaDe(obj,id){return (obj.presencas||{})[id]||null;}
@@ -1146,6 +1281,50 @@ function alertasCulto(c){
   });
   return out;
 }
+const ICO_TROCA='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 4L3 8l4 4"/><path d="M3 8h13a4 4 0 0 1 4 4"/><path d="M17 20l4-4-4-4"/><path d="M21 16H8a4 4 0 0 1-4-4"/></svg>';
+function subDe(obj,id){return (obj.substituicoes||[]).filter(x=>x.para===id).slice(-1)[0]||null;}
+function pedidoDe(obj,deId){return (obj.pedidos||[]).filter(p=>p.de===deId&&p.status!=="cancelado").slice(-1)[0]||null;}
+function tagPedido(obj,m){
+  if(!m||obj.data<hojeStr()) return "";
+  const p=pedidoDe(obj,m.id); if(!p||p.status==="aceito") return "";
+  return p.status==="pendente"?'<span class="pt-troca pend">'+ICO_TROCA+'aguardando '+esc(String(p.paraNome).split(/\s+/)[0])+' aceitar</span>':'<span class="pt-troca rec">'+ICO_TROCA+'procurando substituto</span>';
+}
+function pedidosParaMim(){
+  if(!S.eu) return [];
+  const out=[], hoje=hojeStr();
+  S.cultos.forEach(c=>(c.pedidos||[]).forEach(p=>{if(p.para===S.eu.id&&p.status==="pendente"&&c.data>=hoje) out.push({tipo:"culto",obj:c,p:p});}));
+  S.limpeza.forEach(x=>(x.pedidos||[]).forEach(p=>{if(p.para===S.eu.id&&p.status==="pendente"&&x.data>=hoje) out.push({tipo:"limpeza",obj:x,p:p});}));
+  return out.sort((a,b)=>a.obj.data.localeCompare(b.obj.data));
+}
+function blocoPedido(it){
+  const d=parseData(it.obj.data), o=it.obj;
+  return '<div class="ag-bloco pedido"><div class="ag-item"><span class="ag-dia"><b>'+pad(d.getDate())+'</b><span>'+SEM[d.getDay()]+'</span></span><span class="ag-info">'+
+    '<span class="ag-tipo">'+(it.tipo==="culto"?'Culto':'Limpeza')+' · '+diaSemana(d)+(o.hora?' · '+esc(o.hora):'')+'</span>'+
+    '<span class="ag-t">'+esc(it.tipo==="culto"?o.titulo:"Escala de limpeza")+'</span>'+
+    '<span class="ag-meta"><strong>'+esc(it.p.deNome)+'</strong> pediu para você ficar no lugar dele(a)</span>'+
+    '<span class="papeis">'+(it.p.funcoes||[]).map(f=>'<span class="papel">'+esc(f)+'</span>').join("")+'</span></span></div>'+
+    '<div class="pres-btns"><button type="button" class="btn ok-btn" data-act="pedido" data-pid="'+esc(it.p.id)+'" data-ac="1">Aceitar</button><button type="button" class="btn ghost nao-btn" data-act="pedido" data-pid="'+esc(it.p.id)+'" data-ac="0">Não posso</button></div></div>';
+}
+async function responderPedido(pid,aceitar,btn){
+  if(btn) ocupado(btn,"…");
+  try{
+    await chamar("responderPedido",{pedidoId:pid,aceitar:aceitar});
+    await carregar(); if(!$("#sheet").hidden) fecharSheet(); render();
+    toast(aceitar?"Substituição aceita. Obrigado por servir!":"Resposta enviada. Quem pediu vai indicar outra pessoa.");
+  }catch(err){toast(err.message); if(btn) livre(btn);}
+}
+function abrirPedido(pid){
+  let it=null;
+  S.cultos.forEach(c=>(c.pedidos||[]).forEach(p=>{if(p.id===pid) it={tipo:"culto",obj:c,p:p};}));
+  S.limpeza.forEach(x=>(x.pedidos||[]).forEach(p=>{if(p.id===pid) it={tipo:"limpeza",obj:x,p:p};}));
+  if(!it){toast("Pedido não encontrado."); return;}
+  if(it.p.para!==S.eu.id){toast("Este pedido não é para a sua conta."); return;}
+  if(it.p.status!=="pendente"){toast(it.p.status==="aceito"?"Você já aceitou este pedido.":"Este pedido não está mais valendo."); return;}
+  S.aba="agenda"; render();
+  abrirSheet('<div class="eyebrow">Pedido de substituição</div><h2 class="sh-title" id="sheetTitulo">'+esc(it.p.deNome)+' precisa de você</h2>'+
+    '<p class="lead">'+esc(it.p.deNome)+' não vai conseguir servir e pediu para você ficar no lugar dele(a). A troca só vale quando você aceitar.</p>'+blocoPedido(it));
+}
+function tagTroca(obj,m){const sb=m&&subDe(obj,m.id); return sb?'<span class="pt-troca" title="Substituindo '+esc(sb.deNome)+'">'+ICO_TROCA+'no lugar de '+esc(String(sb.deNome).split(/\s+/)[0])+'</span>':'';}
 const SELO={ok:['<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round"><path d="M5 12l5 5 9-10"/></svg>',"Confirmado"],
   nao:['<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>',"Não vai"],
   esp:['<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="6" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="18" cy="12" r="2"/></svg>',"Aguardando"]};
@@ -1169,7 +1348,22 @@ const ICO_ALERTA='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" str
 function pillPresenca(c){
   const l=escaladosCulto(c); if(!l.length) return "";
   const k=contagemPresenca(c,l);
-  return '<span class="pill '+(k.ok===k.total?'ok':'neutral')+'">'+k.ok+' de '+k.total+' confirmados</span>'+(k.nao?'<span class="pill nao">'+k.nao+(k.nao>1?' não vão':' não vai')+'</span>':'');
+  return '<span class="pill '+(k.ok===k.total?'ok':'neutral')+'">'+k.ok+' de '+k.total+' confirmados</span>'+(k.nao&&!ehLider()?'<span class="pill nao">'+k.nao+(k.nao>1?' não vão':' não vai')+'</span>':'');
+}
+function avisoCard(c){
+  if(!ehLider()||c.data<hojeStr()) return "";
+  const nao=escaladosCulto(c).filter(m=>recusou(c,m.id)).map(m=>m.nome);
+  const al=alertasCulto(c);
+  const linhas=[];
+  nao.forEach(n=>{
+    const m=membroPorNome(n), p=m&&pedidoDe(c,m.id), pn=x=>esc(String(x).split(/\s+/)[0]);
+    if(p&&p.status==="pendente") linhas.push('<strong>'+pn(n)+'</strong> não vai; aguardando <strong>'+pn(p.paraNome)+'</strong> aceitar.');
+    else if(p&&p.status==="recusado") linhas.push('<strong>'+pn(n)+'</strong> não vai e <strong>'+pn(p.paraNome)+'</strong> recusou substituir.');
+    else linhas.push('<strong>'+pn(n)+'</strong> avisou que não vai.');
+  });
+  al.forEach(a=>linhas.push(a.tipo==="indisp"?'<strong>'+esc(a.nome)+'</strong> está indisponível neste dia.':'<strong>'+esc(a.nome)+'</strong> está em duas funções.'));
+  if(!linhas.length) return "";
+  return '<span class="card-aviso">'+ICO_ALERTA+'<span>'+linhas.join(" ")+'<em>Toque para ver os detalhes.</em></span></span>';
 }
 function avisoMesLider(lista){
   if(!ehLider()) return "";
@@ -1198,7 +1392,8 @@ function cardCulto(c){
   const grade=equipe.length?'<span class="equipe-grid">'+equipe.map(p=>{
       const mm=membroPorNome(p.nome), al=alertaDe(p.nome).filter(a=>a.tipo==="indisp"||a.funcoes.indexOf(p.funcao)>=0), cls=al.length?(al[0].tipo==="indisp"?' anel-indisp':' anel-dup'):'';
       const nao=mm&&futuro&&recusou(c,mm.id);
-      return '<span class="pessoa-t"><span class="av-wrap'+cls+(nao?' recusou':'')+'">'+avatarPessoa(p.nome)+(futuro?selo(c,mm):'')+'</span><span class="pt-txt"><span class="pt-nome">'+esc(p.nome)+'</span><span class="pt-func">'+esc(p.funcao)+'</span>'+
+      const tr=mm&&subDe(c,mm.id);
+      return '<span class="pessoa-t"><span class="av-wrap'+cls+(nao?' recusou':'')+(tr?' trocado':'')+'">'+avatarPessoa(p.nome)+(futuro?selo(c,mm):'')+(tr?'<span class="selo-troca" aria-hidden="true">'+ICO_TROCA+'</span>':'')+'</span><span class="pt-txt"><span class="pt-nome">'+esc(p.nome)+'</span><span class="pt-func">'+esc(p.funcao)+'</span>'+tagTroca(c,mm)+tagPedido(c,mm)+
         (al.length?'<span class="pt-alerta '+al[0].tipo+'">'+(al[0].tipo==="indisp"?'Indisponível neste dia':'Em duas funções')+'</span>':'')+'</span></span>';
     }).join("")+'</span>'
     :(c.equipe?'<span class="equipe-grid"><span class="fr" style="white-space:pre-line;grid-column:1/-1">'+esc(c.equipe)+'</span></span>':'<span class="equipe-grid"><span class="fr nd" style="grid-column:1/-1">Equipe a definir</span></span>');
@@ -1206,8 +1401,9 @@ function cardCulto(c){
     '<span class="card-top"><span class="tag-data">'+pad(d.getDate())+'/'+pad(d.getMonth()+1)+'</span>'+(c.hora?'<span class="hora">'+esc(c.hora)+'</span>':'')+
       (c.rascunhoLider?'<span class="tag-rasc">Rascunho</span>':'')+
       (alertas.length&&futuro?'<span class="badge-alerta">'+ICO_ALERTA+alertas.length+(alertas.length>1?' alertas':' alerta')+'</span>':'')+dots(c.dresscode)+'</span>'+
-    '<span class="min-dest"><span class="av-wrap grande'+(m&&futuro&&recusou(c,m.id)?' recusou':'')+(m&&indispDe(m.id,c.data)?' anel-indisp':'')+'">'+avatar(m)+(futuro?selo(c,m):'')+'</span>'+'<span class="min-info"><span class="min-rot">Ministro</span><span class="min-nm">'+esc(m?m.nome:"A definir")+'</span><span class="min-tit">'+esc(c.titulo)+'</span></span></span>'+
+    '<span class="min-dest"><span class="av-wrap grande'+(m&&futuro&&recusou(c,m.id)?' recusou':'')+(m&&indispDe(m.id,c.data)?' anel-indisp':'')+'">'+avatar(m)+(futuro?selo(c,m):'')+'</span>'+'<span class="min-info"><span class="min-rot">Ministro</span><span class="min-nm">'+esc(m?m.nome:"A definir")+'</span><span class="min-tit">'+esc(c.titulo)+'</span>'+tagTroca(c,m)+tagPedido(c,m)+'</span></span>'+
     grade+
+    avisoCard(c)+
     '<span class="card-rep">'+pill(preenchidas(c))+(c.data<=hojeStr()?fbPill(c):'')+(futuro?pillPresenca(c):'')+'</span>'+
     '<span class="card-dia">'+diaSemana(d)+'</span></button>';
 }
@@ -1237,7 +1433,11 @@ function viewLimpeza(){
       const d=parseData(x.data);
       const nomes=String(x.responsaveis).split(/\s*,\s*|\s+e\s+/).filter(Boolean);
       return '<article class="card limp'+(x.data<hoje?' passado':'')+'"><span class="card-top"><span class="tag-data">'+pad(d.getDate())+'/'+pad(d.getMonth()+1)+'</span>'+(x.rascunhoLider?'<span class="tag-rasc">Rascunho</span>':'')+'</span>'+
-        '<div class="card-mid">'+(x.rascunho?'<p class="limp-obs">Equipe em definição</p>':'<div class="pessoas">'+nomes.map(n=>'<span class="pessoa">'+esc(n)+'</span>').join("")+'</div>')+'</div>'+
+        '<div class="card-mid">'+(x.rascunho?'<p class="limp-obs">Equipe em definição</p>':'<div class="pessoas">'+nomes.map(n=>{const mm=membroPorNome(n), sb=mm&&subDe(x,mm.id), pr=mm&&x.data>=hoje?presencaDe(x,mm.id):null, st=mm&&x.data>=hoje?(pr?pr.s:"esp"):"";
+            const pd=mm&&x.data>=hoje?pedidoDe(x,mm.id):null;
+            return '<span class="pessoa'+(sb?' trocada':'')+(pd&&pd.status!=="aceito"?' pedindo':'')+'"'+(sb?' title="No lugar de '+esc(sb.deNome)+'"':pd&&pd.status==="pendente"?' title="Aguardando '+esc(pd.paraNome)+' aceitar"':'')+'>'+(sb?ICO_TROCA:'')+esc(n)+(st?'<i class="mini-st '+st+'" title="'+SELO[st][1]+'" aria-label="'+SELO[st][1]+'">'+SELO[st][0]+'</i>':'')+'</span>';}).join("")+'</div>'+
+          ((x.substituicoes||[]).length?'<p class="limp-obs">'+(x.substituicoes||[]).map(sb=>esc(String(sb.paraNome).split(/\s+/)[0])+' no lugar de '+esc(String(sb.deNome).split(/\s+/)[0])).join(" · ")+'</p>':''))+'</div>'+
+        (!x.rascunho&&S.eu&&x.data>=hoje&&estaNaLista(x.responsaveis,S.eu.nome)?'<div class="limp-pres">'+botoesPresenca("limpeza",x.id,presencaDe(x,S.eu.id))+'</div>':'')+
         (ehLider()?'<div class="limp-acoes"><button class="btn ghost sm" data-act="editLimpeza" data-id="'+esc(x.id)+'">Editar</button><button class="btn ghost danger sm" data-act="delLimpeza" data-id="'+esc(x.id)+'">Excluir</button></div>':'')+
         '<span class="card-dia">'+diaSemana(d)+'</span></article>';
     }).join("")+'</div>';
@@ -1299,12 +1499,12 @@ function viewAgenda(){
       if(passou&&!c.feedback&&estaNaLista((c.funcoes||{}).feedback,eu.nome)) avisos.push('Falta registrar o feedback');
       if(!passou&&indispDe(eu.id,c.data)) avisos.push('Você marcou este dia como indisponível');
       return '<div class="ag-bloco'+(passou?' passado':'')+(recusou(c,eu.id)&&!passou?' recusou':'')+'"><button class="ag-item" data-act="abrir" data-id="'+esc(c.id)+'">'+dia+'<span class="ag-info"><span class="ag-tipo">Culto · '+diaSemana(d)+(c.hora?' · '+esc(c.hora):'')+'</span>'+
-        '<span class="ag-t">'+esc(c.titulo)+'</span><span class="papeis">'+it.papeis.map(p=>'<span class="papel'+(p==="Ministro"?' min':'')+'">'+esc(p)+'</span>').join("")+'</span>'+
+        '<span class="ag-t">'+esc(c.titulo)+'</span><span class="papeis">'+it.papeis.map(p=>'<span class="papel'+(p==="Ministro"?' min':'')+'">'+esc(p)+'</span>').join("")+'</span>'+tagTroca(c,eu)+
         (c.ministroId!==eu.id?'<span class="ag-meta">Ministro: '+esc(nomeMinistro(c.ministroId))+'</span>':'')+
         avisos.map(a=>'<span class="ag-acao">'+a+'</span>').join("")+'</span></button>'+(passou?'':botoesPresenca("culto",c.id,presencaDe(c,eu.id)))+'</div>';
     }
     return '<div class="ag-bloco'+(passou?' passado':'')+(recusou(it.x,eu.id)&&!passou?' recusou':'')+'"><div class="ag-item">'+dia+'<span class="ag-info"><span class="ag-tipo">Limpeza · '+diaSemana(d)+'</span><span class="ag-t">Escala de limpeza</span>'+
-      '<span class="ag-meta">Com '+esc(String(it.x.responsaveis))+'</span></span></div>'+(passou?'':botoesPresenca("limpeza",it.x.id,presencaDe(it.x,eu.id)))+'</div>';
+      '<span class="ag-meta">Com '+esc(String(it.x.responsaveis))+'</span>'+tagTroca(it.x,eu)+'</span></div>'+(passou?'':botoesPresenca("limpeza",it.x.id,presencaDe(it.x,eu.id)))+'</div>';
   };
   const linhaEv=x=>{
     const d=parseData(x.data);
@@ -1315,6 +1515,7 @@ function viewAgenda(){
   return '<div class="ag-head">'+avatar(membro(eu.id)||eu)+'<div><p class="ag-ola">Olá, '+esc(primeiro)+'!</p><p class="ag-sub">'+sub+'</p>'+
     (pend?'<p class="ag-pend">'+pend+(pend>1?' presenças para confirmar':' presença para confirmar')+'</p>':'')+
     '<button type="button" class="btn ghost sm" data-act="indisp" style="margin-top:8px">Marcar dias que não posso</button></div></div>'+
+    (pedidosParaMim().length?'<p class="ag-sec pedidos">Pedidos de substituição para você</p><div class="ag-list">'+pedidosParaMim().map(blocoPedido).join("")+'</div>':'')+
     (n?'<div class="ag-list">'+itens.map(linha).join("")+'</div>':'')+
     (evs.length?'<p class="ag-sec">Eventos do ministério '+quando+'</p><div class="ag-list">'+evs.map(linhaEv).join("")+'</div>':'');
 }
@@ -1473,7 +1674,12 @@ function secAlertas(c){
 }
 function botoesPresenca(tipo,id,p){
   if(p&&p.s==="ok") return '<div class="pres-st ok"><span>'+SELO.ok[0]+'Presença confirmada</span><button type="button" class="link-btn" data-act="presenca" data-tipo="'+tipo+'" data-id="'+esc(id)+'" data-r="">Desfazer</button></div>';
-  if(p&&p.s==="nao") return '<div class="pres-st nao"><span>Você avisou que não vai. Os líderes já sabem.</span><button type="button" class="link-btn" data-act="presenca" data-tipo="'+tipo+'" data-id="'+esc(id)+'" data-r="">Desfazer</button></div>';
+  if(p&&p.s==="nao"){
+    const obj=tipo==="culto"?S.cultos.find(x=>x.id===id):S.limpeza.find(x=>x.id===id), ped=obj&&S.eu?pedidoDe(obj,S.eu.id):null;
+    if(ped&&ped.status==="pendente") return '<div class="pres-st pend"><span>'+ICO_TROCA+'Aguardando '+esc(String(ped.paraNome).split(/\s+/)[0])+' aceitar. Você continua na escala até lá.</span><button type="button" class="link-btn" data-act="presenca" data-tipo="'+tipo+'" data-id="'+esc(id)+'" data-r="">Cancelar pedido</button></div>';
+    if(ped&&ped.status==="recusado") return '<div class="pres-st nao col"><span>'+esc(String(ped.paraNome).split(/\s+/)[0])+' não pode substituir. Indique outra pessoa.</span><div class="pres-btns" style="margin-top:8px"><button type="button" class="btn nao-cheio" data-act="presenca" data-tipo="'+tipo+'" data-id="'+esc(id)+'" data-r="nao">Indicar outra pessoa</button><button type="button" class="btn ghost" data-act="presenca" data-tipo="'+tipo+'" data-id="'+esc(id)+'" data-r="ok">Vou conseguir ir</button></div></div>';
+    return '<div class="pres-st nao"><span>Você avisou que não vai. Os líderes já sabem.</span><button type="button" class="link-btn" data-act="presenca" data-tipo="'+tipo+'" data-id="'+esc(id)+'" data-r="">Desfazer</button></div>';
+  }
   return '<div class="pres-btns"><button type="button" class="btn ok-btn" data-act="presenca" data-tipo="'+tipo+'" data-id="'+esc(id)+'" data-r="ok">Confirmo</button><button type="button" class="btn ghost nao-btn" data-act="presenca" data-tipo="'+tipo+'" data-id="'+esc(id)+'" data-r="nao">Não vou conseguir</button></div>';
 }
 function secPresenca(c){
@@ -1482,12 +1688,14 @@ function secPresenca(c){
   const k=contagemPresenca(c,l), euEsc=S.eu&&l.some(m=>m.id===S.eu.id);
   const linhas=l.map(m=>{
     const p=presencaDe(c,m.id), st=p?p.s:"esp", mot=ehLider()&&st==="nao"?S.lid.motivos["c:"+c.id+":"+m.id]:"";
-    return '<li><span class="av-wrap pequeno">'+avatarPessoa(m.nome)+selo(c,m)+'</span><span class="pres-nm">'+esc(m.nome)+'<small>'+esc(papeisDe(c,m).join(", "))+'</small></span><span class="pres-txt '+st+'">'+SELO[st][1]+(mot?'<small>'+esc(mot)+'</small>':'')+'</span></li>';
+    return '<li><span class="av-wrap pequeno">'+avatarPessoa(m.nome)+selo(c,m)+'</span><span class="pres-nm">'+esc(m.nome)+'<small>'+esc(papeisDe(c,m).join(", "))+'</small>'+tagTroca(c,m)+tagPedido(c,m)+'</span><span class="pres-txt '+st+'">'+SELO[st][1]+(mot?'<small>'+esc(mot)+'</small>':'')+'</span></li>';
   }).join("");
   return '<div class="sec"><div class="sec-h"><h3>Presença</h3><span class="pill '+(k.ok===k.total?'ok':'neutral')+'">'+k.ok+' de '+k.total+' confirmados</span></div>'+
     '<div class="barra-pres" aria-hidden="true"><span style="width:'+(k.ok/k.total*100)+'%;background:var(--ok)"></span><span style="width:'+(k.nao/k.total*100)+'%;background:var(--flame)"></span></div>'+
     (euEsc?botoesPresenca("culto",c.id,presencaDe(c,S.eu.id)):'')+
     '<ul class="pres-list">'+linhas+'</ul>'+
+    ((c.substituicoes||[]).length?'<div class="subs-hist"><h4>'+ICO_TROCA+'Substituições</h4>'+(c.substituicoes||[]).map(sb=>{const mot=ehLider()?S.lid.motivos["s:"+c.id+":"+sb.de+":"+sb.para]:"";
+      return '<p><strong>'+esc(sb.paraNome)+'</strong> no lugar de <strong>'+esc(sb.deNome)+'</strong> · '+esc((sb.funcoes||[]).join(", "))+(mot?'<small>Motivo: '+esc(mot)+'</small>':'')+'</p>';}).join("")+'</div>':'')+
     (ehLider()&&k.nao?'<div class="actions" style="margin-top:8px"><button class="btn" data-act="editarCulto" data-id="'+esc(c.id)+'">Escolher substituto</button></div>':'')+'</div>';
 }
 const podeDresscode=()=>!!(S.eu&&(S.eu.lider||S.eu.permDresscode));
@@ -1596,16 +1804,44 @@ async function responder(tipo,id,resposta,motivo,btn){
     return true;
   }catch(err){toast(err.message); if(btn) livre(btn); return false;}
 }
-function telaRecusa(tipo,id){
-  const obj=tipo==="culto"?S.cultos.find(x=>x.id===id):S.limpeza.find(x=>x.id===id); if(!obj) return;
-  abrirSheet('<div class="eyebrow">'+esc(tipo==="culto"?obj.titulo:"Escala de limpeza")+' · '+dataCurta(obj.data)+'</div><h2 class="sh-title" id="sheetTitulo">Não vai conseguir?</h2>'+
-    '<p class="lead">Os líderes recebem um aviso na hora para escolher quem vai substituir.</p>'+
-    '<form id="fRecusa" class="form" novalidate><label for="recMotivo">Motivo (obrigatório, só os líderes veem)</label><textarea id="recMotivo" required placeholder="Ex.: vou estar viajando nesse fim de semana."></textarea><p class="err" id="errRecusa"></p>'+
-    '<div class="actions"><button class="btn nao-cheio" type="submit">Avisar os líderes</button><button class="btn ghost" type="button" data-act="fechar">Voltar</button></div></form>');
-  $("#fRecusa").onsubmit=e=>{e.preventDefault();
-    if($("#recMotivo").value.trim().length<3){$("#errRecusa").textContent="Nos conte o motivo da ausência, é importante."; $("#recMotivo").focus(); return;}
-    responder(tipo,id,"nao",$("#recMotivo").value,e.submitter||$("#fRecusa button[type=submit]"));};
+function opcoesSubstituto(obj,tipo){
+  const eu=S.eu, ja=tipo==="culto"?S.membros.filter(m=>papeisDe(obj,m).length).map(m=>m.id):S.membros.filter(m=>estaNaLista(obj.responsaveis,m.nome)).map(m=>m.id);
+  const meus=tipo==="culto"?papeisDe(obj,eu):["Limpeza"];
+  const ehMin=tipo==="culto"&&obj.ministroId===eu.id;
+  const canta=meus.indexOf("Backing")>=0, toca=meus.some(f=>INSTRUMENTOS.indexOf(f)>=0);
+  const livres=S.membros.filter(m=>m.id!==eu.id&&ja.indexOf(m.id)<0).sort((a,b)=>a.nome.localeCompare(b.nome));
+  const ok=m=>!ehMin||m.ministro;
+  const sug=livres.filter(m=>ok(m)&&(ehMin?m.ministro:canta?m.cantor:toca?m.musico:false));
+  const outros=livres.filter(m=>ok(m)&&sug.indexOf(m)<0);
+  const op=l=>l.map(m=>'<option value="'+esc(m.id)+'">'+esc(m.nome)+'</option>').join("");
+  const rot=ehMin?"Ministros":canta?"Cantores":toca?"Músicos":"";
+  return {html:'<option value="">Escolha um membro</option>'+(sug.length&&rot?'<optgroup label="'+rot+'">'+op(sug)+'</optgroup>'+(outros.length?'<optgroup label="Outros membros">'+op(outros)+'</optgroup>':''):op(sug.concat(outros))),
+    vazio:!sug.length&&!outros.length, ehMin:ehMin, meus:meus};
 }
+function telaRecusa(tipo,id){
+  const obj=tipo==="culto"?S.cultos.find(x=>x.id===id):S.limpeza.find(x=>x.id===id); if(!obj||!S.eu) return;
+  const o=opcoesSubstituto(obj,tipo);
+  abrirSheet('<div class="eyebrow">'+esc(tipo==="culto"?obj.titulo:"Escala de limpeza")+' · '+dataCurta(obj.data)+'</div><h2 class="sh-title" id="sheetTitulo">Não vai conseguir?</h2>'+
+    '<p class="lead">Indique quem vai ficar no seu lugar'+(o.meus.length?' ('+esc(o.meus.join(", "))+')':'')+'. A pessoa recebe um e-mail para <strong>aceitar</strong> a substituição. Você continua na escala até ela aceitar.</p>'+
+    '<form id="fRecusa" class="form" novalidate>'+
+    '<label for="recSub">Quem vai te substituir (obrigatório)</label><select id="recSub">'+o.html+'</select>'+
+    (o.ehMin?'<p class="hint">Como você é o ministro deste culto, só aparecem outros ministros.</p>':'')+
+    (o.vazio?'<p class="hint">Não há ninguém disponível para indicar. Fale com um líder.</p>':'')+
+    '<label for="recMotivo">Motivo (obrigatório, só os líderes veem)</label><textarea id="recMotivo" required placeholder="Ex.: vou estar viajando nesse fim de semana."></textarea><p class="err" id="errRecusa"></p>'+
+    '<div class="actions"><button class="btn nao-cheio" type="submit">'+ICO_TROCA_BTN+'Enviar pedido</button><button class="btn ghost" type="button" data-act="fechar">Voltar</button></div></form>');
+  $("#fRecusa").onsubmit=async e=>{e.preventDefault();
+    const sub=$("#recSub").value, mot=$("#recMotivo").value.trim(), btn=e.submitter||$("#fRecusa button[type=submit]");
+    if(!sub){$("#errRecusa").textContent="Escolha quem vai te substituir.";$("#recSub").focus();return;}
+    if(mot.length<3){$("#errRecusa").textContent="Nos conte o motivo da ausência, é importante.";$("#recMotivo").focus();return;}
+    ocupado(btn,"Enviando…");
+    try{
+      const r=await chamar("responderPresenca",{tipo:tipo,id:id,resposta:"nao",motivo:mot,substitutoId:sub});
+      await carregar(); fecharSheet(); render();
+      toast("Pedido enviado para "+String(r.substituto).split(/\s+/)[0]+". Avisaremos quando ela(e) responder.");
+    }catch(err){$("#errRecusa").textContent=err.message;livre(btn);}
+  };
+}
+const ICO_TROCA_BTN='<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-3px;margin-right:6px"><path d="M7 4L3 8l4 4"/><path d="M3 8h13a4 4 0 0 1 4 4"/><path d="M17 20l4-4-4-4"/><path d="M21 16H8a4 4 0 0 1-4-4"/></svg>';
 
 /* ----- Indisponibilidades ----- */
 function telaIndisp(){
@@ -1978,6 +2214,7 @@ document.addEventListener("click",async e=>{
       break;
     }
     case "indisp": telaIndisp(); break;
+    case "pedido": responderPedido(b.dataset.pid,b.dataset.ac==="1",b); break;
     case "dresscode": comLogin("Entre com sua conta para definir o dresscode.",()=>telaDresscode(id)); break;
     case "presenca": {
       const tipo=b.dataset.tipo, r=b.dataset.r;
@@ -2076,8 +2313,13 @@ if(inicial){aplicarDados(inicial,true);}
 if(S.eu) S.aba="agenda";
 prepararLogin();
 verificarVersao();
+const pedidoUrl=(()=>{try{return new URLSearchParams(location.search).get("pedido");}catch(e){return null;}})();
 render(); carregar(); restaurarSessao();
-if(!S.token&&lsGet("louvor_visitante")!=="1") telaLogin();
+if(pedidoUrl){
+  try{history.replaceState(null,"",location.pathname+location.hash);}catch(e){}
+  const abrir=()=>{const go=()=>abrirPedido(pedidoUrl); if(S.cultos.length||S.limpeza.length) go(); else setTimeout(go,1500);};
+  if(S.token) setTimeout(abrir,600); else telaLogin("Entre com sua conta para responder ao pedido de substituição.",abrir);
+} else if(!S.token&&lsGet("louvor_visitante")!=="1") telaLogin();
 })();
 </script>
 
