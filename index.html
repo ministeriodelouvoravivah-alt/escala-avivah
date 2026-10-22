@@ -562,7 +562,7 @@ const CONFIG = {
   API_URL: "https://script.google.com/macros/s/AKfycbxrhX4edbA7aVQrjiIY4e7g8OeeX_7A9HvKmPRTUlxskJDYWYRQ8M6rKq8xc8HBBHF8/exec",
   NOME: "Ministério Avivah"
 };
-const VERSAO_APP = "2026.10.22-6"; // muda a cada versão enviada; não precisa editar
+const VERSAO_APP = "2026.10.22-7"; // muda a cada versão enviada; não precisa editar
 /* ======================================================== */
 
 const MESES=["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
@@ -667,7 +667,8 @@ function emailBase(titulo,corpo,link,nomeMin){
     '<div style="font-size:12px;letter-spacing:2px;font-weight:bold;color:#ffb1aa">'+escH(String(nomeMin||"Ministério de louvor").toUpperCase())+'</div>'+
     '<div style="font-size:22px;font-weight:bold;margin-top:4px">'+escH(titulo)+'</div></div>'+
     '<div style="padding:22px 24px;color:#0f1a3a;font-size:15px;line-height:1.5">'+corpo+
-    (link?'<p style="margin:24px 0 4px"><a href="'+escH(link)+'" style="display:inline-block;background:#14307f;color:#ffffff;text-decoration:none;font-weight:bold;padding:12px 22px;border-radius:999px">Abrir a escala</a></p>':'')+
+    (link?'<div style="margin:24px 0 0;padding-top:18px;border-top:1px solid #dfe5f1"><a href="'+escH(link)+'" style="display:inline-block;background:#14307f;color:#ffffff;text-decoration:none;font-weight:bold;padding:12px 22px;border-radius:999px">Abrir a escala</a>'+
+      '<p style="margin:10px 0 0;font-size:12.5px;color:#59627d">Se o botão não abrir, copie o endereço: <a href="'+escH(link)+'" style="color:#14307f;word-break:break-all">'+escH(link)+'</a></p></div>':'')+
     '</div></div><p style="text-align:center;color:#59627d;font-size:12px;margin:14px 0 0">Você recebe este e-mail porque faz parte do ministério de louvor.</p></div>';
 }
 function linhaEmail(t,s){return '<tr><td style="padding:10px 0;border-top:1px solid #dfe5f1"><div style="font-weight:bold;color:#14307f">'+t+'</div>'+(s?'<div style="color:#59627d;font-size:14px">'+s+'</div>':'')+'</td></tr>';}
@@ -761,7 +762,7 @@ function emailPedidoConvidado(de,nome,alvo,tipo,funcao,motivo,link,pid,nomeMin){
     (motivo?'<p style="margin:10px 0 0;color:#59627d">Motivo: '+escH(motivo)+'</p>':'')+
     '<p style="margin:14px 0 0">Como o convidado não tem conta no app, um líder precisa aprovar a troca.</p>'+
     (url?'<p style="margin:16px 0 4px"><a href="'+escH(url)+'" style="display:inline-block;background:#25784a;color:#ffffff;text-decoration:none;font-weight:bold;padding:12px 22px;border-radius:999px">Aprovar ou recusar</a></p>':'');
-  return {assunto:"Aprovar convidado: "+nome+" no lugar de "+String(de.nome).split(/\s+/)[0]+" em "+dataBR(alvo.data),html:emailBase("Substituição por convidado",corpo,"",nomeMin)};
+  return {assunto:"Aprovar convidado: "+nome+" no lugar de "+String(de.nome).split(/\s+/)[0]+" em "+dataBR(alvo.data),html:emailBase("Substituição por convidado",corpo,link,nomeMin)};
 }
 function aplicarTroca(db,alvo,tipo,de,sub,funcoes,motivo){
   if(tipo==="culto"){
@@ -782,7 +783,7 @@ function emailPedido(sub,de,alvo,tipo,funcao,link,pid,nomeMin,lembrete){
     tabelaEmail([linhaEmail(escH(quando)+' — '+escH(tipo==="limpeza"?"Escala de limpeza":alvo.titulo),'Função: <strong>'+escH(funcao)+'</strong>')])+
     '<p style="margin:14px 0 0;color:#59627d">A troca só vale depois que você aceitar. Até lá, '+escH(String(de.nome).split(/\s+/)[0])+' continua na escala.</p>'+
     (url?'<p style="margin:16px 0 4px"><a href="'+escH(url)+'" style="display:inline-block;background:#25784a;color:#ffffff;text-decoration:none;font-weight:bold;padding:12px 22px;border-radius:999px">Responder ao pedido</a></p>':'');
-  return {assunto:(lembrete?"Lembrete: ":"")+String(de.nome).split(/\s+/)[0]+" pediu para você substituí-lo(a) em "+dataBR(alvo.data),html:emailBase("Pedido de substituição",corpo,"",nomeMin)};
+  return {assunto:(lembrete?"Lembrete: ":"")+String(de.nome).split(/\s+/)[0]+" pediu para você substituí-lo(a) em "+dataBR(alvo.data),html:emailBase("Pedido de substituição",corpo,link,nomeMin)};
 }
 function emailRespostaPedido(dest,ped,alvo,tipo,aceitou,link,nomeMin,paraLider){
   const quando=dataBR(alvo.data)+(alvo.hora?' · '+alvo.hora:'');
@@ -1235,9 +1236,10 @@ const remoteApi={
   }
 };
 const api=CONFIG.API_URL?remoteApi:localApi;
+function linkDoApp(){try{return /^https:$/.test(location.protocol)?location.origin+location.pathname:"";}catch(e){return "";}}
 async function chamar(action,payload){
   try{
-    const r=await api.call(action,Object.assign({token:S.token},payload||{}));
+    const r=await api.call(action,Object.assign({token:S.token,linkApp:linkDoApp()},payload||{}));
     if(r&&r.rascunhos){S.rasc=r.rascunhos;lsSet("louvor_rasc",JSON.stringify(r.rascunhos));}
     if(r&&r.dados){aplicarDados(r.dados);S.frescoEm=Date.now();}
     return r;
