@@ -376,6 +376,16 @@ button.ag-item:hover{border-color:var(--flame)}
 .cal-leg i{display:inline-block}
 .lg-m{width:14px;height:14px;border-radius:4px;background:var(--flame)}
 .lg-c{width:6px;height:6px;border-radius:50%;background:var(--brand)}
+.tag-rasc{font-family:var(--f-display);font-weight:800;font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;background:var(--warn-soft);color:var(--warn);padding:3px 8px;border-radius:999px}
+.rasc-mid{display:flex;align-items:center;gap:12px;padding:16px 14px 18px}
+.rasc-mid strong{display:block;font-size:16px;color:var(--brand)}
+.rasc-mid>span:last-child{font-size:14px;color:var(--muted)}
+.rasc-ico{width:44px;height:44px;border-radius:50%;background:var(--surface-2);color:var(--muted);display:grid;place-items:center;flex:none}
+.rasc-ico svg{width:22px;height:22px}
+.info-mes{background:var(--sky-soft);border-radius:14px;padding:11px 14px;font-size:13.5px;color:var(--ink);line-height:1.45}
+.info-mes strong{color:var(--brand)}
+.aviso-bar.rasc .aviso-ico{background:var(--warn-soft);color:var(--warn)}
+.link-btn.armado{color:var(--danger)}
 .min-list .usr{font-family:var(--f-mono);font-size:12px;color:var(--muted);font-weight:500}
 
 /* Tela de login: a própria escala desfocada ao fundo, cartão à frente */
@@ -480,10 +490,10 @@ button.ag-item:hover{border-color:var(--flame)}
 const CONFIG = {
   // Cole aqui a URL do App da Web do Google Apps Script (termina em /exec).
   // Vazio = modo demonstração (dados só no aparelho).
-  API_URL: "https://script.google.com/macros/s/AKfycbxrhX4edbA7aVQrjiIY4e7g8OeeX_7A9HvKmPRTUlxskJDYWYRQ8M6rKq8xc8HBBHF8/exec",
+  API_URL: "httpsscript.google.commacrossAKfycbxrhX4edbA7aVQrjiIY4e7g8OeeX_7A9HvKmPRTUlxskJDYWYRQ8M6rKq8xc8HBBHF8exec",
   NOME: "Ministério Avivah"
 };
-const VERSAO_APP = "2026.10.21-10"; // muda a cada versão enviada; não precisa editar
+const VERSAO_APP = "2026.10.21-11"; // muda a cada versão enviada; não precisa editar
 /* ======================================================== */
 
 const MESES=["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
@@ -545,12 +555,26 @@ function normalizarFuncoes(o){
 function normalizarDresscode(l){
   return (Array.isArray(l)?l:[]).map(x=>String(x).trim().toLowerCase()).filter(x=>HEX_RE.test(x)).filter((x,i,a)=>a.indexOf(x)===i).slice(0,6);
 }
-const TABELAS_POR_ACAO={salvarDresscode:["Cultos"],salvarIndisp:["Membros"],responderPresenca:["Cultos","Limpeza"],salvarEmail:["Membros"],avisarEquipe:["Avisos"],trocarSenha:["Membros"],saveMembro:["Membros"],deleteMembro:["Membros"],saveCulto:["Cultos"],deleteCulto:["Cultos"],
+const TABELAS_POR_ACAO={publicarMes:["Avisos"],despublicarMes:["Avisos"],salvarDresscode:["Cultos"],salvarIndisp:["Membros"],responderPresenca:["Cultos","Limpeza"],salvarEmail:["Membros"],avisarEquipe:["Avisos"],trocarSenha:["Membros"],saveMembro:["Membros"],deleteMembro:["Membros"],saveCulto:["Cultos"],deleteCulto:["Cultos"],
   saveRepertorio:["Cultos"],saveFeedback:["Cultos"],saveLimpeza:["Limpeza"],deleteLimpeza:["Limpeza"],saveEvento:["Eventos"],deleteEvento:["Eventos"]};
 function fotoVersao(f){f=String(f||"");return f?f.length.toString(36)+f.slice(-12):"";}
+function mesPublicado(db,data){const mes=String(data).slice(0,7);return (db.avisos||[]).some(a=>a.mes===mes&&a.publicado);}
+function redigirCulto(c){return {id:c.id,data:c.data,hora:c.hora,titulo:c.titulo,dresscode:c.dresscode||[],rascunho:true,ministroId:"",funcoes:{},musicas:[],presencas:{},feedback:null,obs:"",equipe:""};}
+function redigirLimpeza(x){return {id:x.id,data:x.data,responsaveis:"",presencas:{},rascunho:true};}
+function rascunhosDe(db){
+  return {cultos:(db.cultos||[]).filter(c=>!mesPublicado(db,c.data)).map(c=>Object.assign({},c,{presencas:semMotivo(c.presencas)})),
+    limpeza:(db.limpeza||[]).filter(x=>!mesPublicado(db,x.data)).map(x=>Object.assign({},x,{presencas:semMotivo(x.presencas)}))};
+}
+function usuarioDoToken(db,token,env){
+  if(!token) return null;
+  const t=String(token), i=t.lastIndexOf("."), m=(db.membros||[]).find(x=>x.usuario===t.slice(0,i));
+  return m&&(m.usuario+"."+env.hash("tok|"+m.usuario+"|"+m.senhaHash))===t?m:null;
+}
 function dadosPublicos(db){
   return {membros:(db.membros||[]).map(m=>({id:m.id,nome:m.nome,ministro:!!m.ministro,lider:!!m.lider,cantor:!!m.cantor,musico:!!m.musico,fotoV:fotoVersao(m.foto)})),
-    cultos:(db.cultos||[]).map(c=>Object.assign({},c,{presencas:semMotivo(c.presencas)})),limpeza:(db.limpeza||[]).map(x=>Object.assign({},x,{presencas:semMotivo(x.presencas)})),eventos:db.eventos||[],avisos:(db.avisos||[]).map(a=>({mes:a.mes,enviadoEm:a.enviadoEm,enviadoPor:a.enviadoPor}))};
+    cultos:(db.cultos||[]).map(c=>mesPublicado(db,c.data)?Object.assign({},c,{presencas:semMotivo(c.presencas)}):redigirCulto(c)),
+    limpeza:(db.limpeza||[]).map(x=>mesPublicado(db,x.data)?Object.assign({},x,{presencas:semMotivo(x.presencas)}):redigirLimpeza(x)),
+    eventos:db.eventos||[],avisos:(db.avisos||[]).map(a=>({mes:a.mes,enviadoEm:a.enviadoEm,enviadoPor:a.enviadoPor,publicado:!!a.publicado}))};
 }
 function fotosDe(db){const o={};(db.membros||[]).forEach(m=>{if(m.foto) o[m.id]=m.foto;});return o;}
 /* ----- E-mails (montados aqui e enviados pelo servidor) ----- */
@@ -600,13 +624,13 @@ function emailEscala(db,m,chave,link,nomeMin){
 }
 function emailHoje(db,m,hoje,link,nomeMin){
   const itens=[], pend=[];
-  (db.cultos||[]).filter(c=>c.data===hoje).sort(porData).forEach(c=>{
+  (db.cultos||[]).filter(c=>c.data===hoje&&mesPublicado(db,c.data)).sort(porData).forEach(c=>{
     const p=papeisDe(c,m); if(!p.length||recusou(c,m.id)) return;
     const dc=(c.dresscode||[]).map(h=>NOMES_CORES[h]||"Cor "+String(h).toUpperCase()).join(", ");
     itens.push(linhaEmail(escH(c.titulo)+(c.hora?' às '+escH(c.hora):''),'Você: <strong>'+escH(p.join(", "))+'</strong>'+(dc?' · Dresscode: '+escH(dc):'')));
     if(c.ministroId===m.id&&qtdMusicas(c)<5) pend.push(c);
   });
-  (db.limpeza||[]).filter(x=>x.data===hoje&&nomeNaLista(x.responsaveis,m.nome)&&!recusou(x,m.id)).forEach(x=>itens.push(linhaEmail("Escala de limpeza","Com "+escH(x.responsaveis))));
+  (db.limpeza||[]).filter(x=>x.data===hoje&&mesPublicado(db,x.data)&&nomeNaLista(x.responsaveis,m.nome)&&!recusou(x,m.id)).forEach(x=>itens.push(linhaEmail("Escala de limpeza","Com "+escH(x.responsaveis))));
   if(!itens.length) return null;
   let corpo='<p style="margin:0 0 6px">Olá, '+escH(String(m.nome).split(/\s+/)[0])+'! Hoje é dia de servir. Confira:</p>'+tabelaEmail(itens);
   pend.forEach(c=>{corpo+='<p style="margin:16px 0 0;background:#fbecd6;color:#7a4300;padding:12px 14px;border-radius:10px">O repertório de <strong>'+escH(c.titulo)+'</strong> está com '+qtdMusicas(c)+' de 5 músicas. Complete no app antes do culto.</p>';});
@@ -647,13 +671,13 @@ function rotinaDoDia(db,env){
   (db.membros||[]).forEach(m=>{
     if(!m.email) return;
     const itens=[];
-    (db.cultos||[]).filter(c=>c.data===alvoDia).sort(porData).forEach(c=>{const p=papeisDe(c,m); if(p.length&&!(c.presencas&&c.presencas[m.id])) itens.push({titulo:c.titulo,hora:c.hora,funcao:p.join(", ")});});
-    (db.limpeza||[]).filter(x=>x.data===alvoDia&&nomeNaLista(x.responsaveis,m.nome)&&!(x.presencas&&x.presencas[m.id])).forEach(()=>itens.push({titulo:"Escala de limpeza",hora:"",funcao:"Limpeza"}));
+    (db.cultos||[]).filter(c=>c.data===alvoDia&&mesPublicado(db,c.data)).sort(porData).forEach(c=>{const p=papeisDe(c,m); if(p.length&&!(c.presencas&&c.presencas[m.id])) itens.push({titulo:c.titulo,hora:c.hora,funcao:p.join(", ")});});
+    (db.limpeza||[]).filter(x=>x.data===alvoDia&&mesPublicado(db,x.data)&&nomeNaLista(x.responsaveis,m.nome)&&!(x.presencas&&x.presencas[m.id])).forEach(()=>itens.push({titulo:"Escala de limpeza",hora:"",funcao:"Limpeza"}));
     if(itens.length){const e=emailConfirmar(m,alvoDia,itens,link,nomeMin); env.enviar(m.email,e.assunto,e.html); enviados.confirmar++;}
   });
   (db.membros||[]).forEach(m=>{if(!m.email) return; const e=emailHoje(db,m,hoje,link,nomeMin); if(e){env.enviar(m.email,e.assunto,e.html);enviados.hoje++;}});
   db.avisos.forEach(a=>{
-    if(!a.enviadoDia) return;
+    if(!a.enviadoDia||!a.publicado) return;
     const dias=diasEntre(a.enviadoDia,hoje);
     const etapa=(dias>=6&&!a.lembrete6)?2:(dias>=3&&!a.lembrete3)?1:0;
     if(!etapa) return;
@@ -722,7 +746,7 @@ function processar(db,req,env){
       db.membros.forEach(m=>{if(m.indisp&&m.indisp.length) indisp[m.id]=m.indisp;});
       db.cultos.forEach(c=>Object.keys(c.presencas||{}).forEach(id=>{const p=c.presencas[id]; if(p&&p.s==="nao"&&p.motivo) motivos["c:"+c.id+":"+id]=p.motivo;}));
       db.limpeza.forEach(x=>Object.keys(x.presencas||{}).forEach(id=>{const p=x.presencas[id]; if(p&&p.s==="nao"&&p.motivo) motivos["l:"+x.id+":"+id]=p.motivo;}));
-      return {indisp:indisp,motivos:motivos};
+      return {indisp:indisp,motivos:motivos,rascunhos:rascunhosDe(db)};
     }
     case "responderPresenca":{
       exigirLogin();
@@ -731,6 +755,7 @@ function processar(db,req,env){
       if(!alvo) throw new Error("Compromisso não encontrado. Atualize a página.");
       const funcoes=tipo==="culto"?papeisDe(alvo,eu):(nomeNaLista(alvo.responsaveis,eu.nome)?["Limpeza"]:[]);
       if(!funcoes.length) throw new Error("Você não está escalado neste compromisso.");
+      if(!mesPublicado(db,alvo.data)) throw new Error("A escala deste mês ainda não foi publicada.");
       if(alvo.data<env.hoje()) throw new Error("Esse compromisso já passou.");
       alvo.presencas=alvo.presencas||{};
       const antes=alvo.presencas[eu.id], r=req.resposta;
@@ -749,22 +774,32 @@ function processar(db,req,env){
       if(e&&!EMAIL_RE.test(e)) throw new Error("Esse e-mail não parece válido. Confira e tente de novo.");
       eu.email=e; return {eu:publico(eu)};
     }
-    case "avisarEquipe":{
+    case "avisarEquipe": case "publicarMes":{
       exigirLider();
       const ano=Number(req.ano), mes=Number(req.mes);
       if(!(ano>2000&&mes>=0&&mes<12)) throw new Error("Mês inválido.");
       const chave=ano+"-"+String(mes+1).padStart(2,"0");
-      if(!db.cultos.some(c=>String(c.data).startsWith(chave+"-"))) throw new Error("Ainda não há cultos lançados neste mês.");
+      if(!db.cultos.some(c=>String(c.data).startsWith(chave+"-"))&&!db.limpeza.some(x=>String(x.data).startsWith(chave+"-"))) throw new Error("Ainda não há cultos nem limpeza lançados neste mês.");
       db.avisos=db.avisos||[];
+      const enviar=req.action==="avisarEquipe"||!!req.enviarEmail;
       const com=db.membros.filter(m=>m.email), semEmail=db.membros.filter(m=>!m.email).map(m=>m.nome);
-      if(!com.length) throw new Error("Nenhum membro tem e-mail cadastrado ainda.");
-      if(env.cota&&env.cota()<com.length) throw new Error("O limite diário de e-mails do Google acabou. Tente amanhã.");
-      com.forEach(m=>{const e=emailEscala(db,m,chave,env.link(),env.nomeMin); env.enviar(m.email,e.assunto,e.html);});
+      if(enviar&&!com.length) throw new Error("Nenhum membro tem e-mail cadastrado ainda. Publique sem enviar e-mail.");
+      if(enviar&&env.cota&&env.cota()<com.length) throw new Error("O limite diário de e-mails do Google acabou. Publique sem e-mail e reenvie amanhã.");
       let a=db.avisos.find(x=>x.mes===chave);
-      if(!a){a={mes:chave,enviadoEm:"",enviadoDia:"",enviadoPor:"",lembrete3:"",lembrete6:""}; db.avisos.push(a);}
+      if(!a){a={mes:chave,enviadoEm:"",enviadoDia:"",enviadoPor:"",lembrete3:"",lembrete6:"",publicado:false}; db.avisos.push(a);}
+      a.publicado=true;
       if(!a.enviadoDia) a.enviadoDia=env.hoje();
-      a.enviadoEm=new Date().toISOString(); a.enviadoPor=eu.nome;
-      return {enviados:com.length,semEmail:semEmail};
+      if(enviar){
+        com.forEach(m=>{const e=emailEscala(db,m,chave,env.link(),env.nomeMin); env.enviar(m.email,e.assunto,e.html);});
+        a.enviadoEm=new Date().toISOString(); a.enviadoPor=eu.nome;
+      }
+      return {enviados:enviar?com.length:0,semEmail:enviar?semEmail:[]};
+    }
+    case "despublicarMes":{
+      exigirLider();
+      const chave=Number(req.ano)+"-"+String(Number(req.mes)+1).padStart(2,"0");
+      const a=(db.avisos||[]).find(x=>x.mes===chave); if(a) a.publicado=false;
+      return {};
     }
     case "saveMembro":{
       exigirLider();
@@ -823,6 +858,7 @@ function processar(db,req,env){
       exigirLogin();
       const c=acharCulto(req.cultoId);
       if(!(eu.lider||c.ministroId===eu.id)) throw new Error("Só o ministro escalado neste culto ou um líder pode lançar o repertório.");
+      if(!eu.lider&&!mesPublicado(db,c.data)) throw new Error("A escala deste mês ainda não foi publicada.");
       c.musicas=normalizarMusicas(req.musicas); c.atualizadoEm=new Date().toISOString();
       return {culto:c};
     }
@@ -830,6 +866,7 @@ function processar(db,req,env){
       exigirLogin();
       const c=acharCulto(req.cultoId);
       if(!(eu.lider||c.ministroId===eu.id||escaladoNoFeedback(c,eu.nome))) throw new Error("Só quem está escalado no Feedback deste culto, o ministro ou um líder pode registrar.");
+      if(!eu.lider&&!mesPublicado(db,c.data)) throw new Error("A escala deste mês ainda não foi publicada.");
       const f=req.feedback||{};
       const fb={autor:String(f.autor||"").trim(),bem:String(f.bem||"").trim(),melhorar:String(f.melhorar||"").trim()};
       if(!fb.bem&&!fb.melhorar) c.feedback=null; else {fb.em=new Date().toISOString(); c.feedback=fb;}
@@ -871,7 +908,7 @@ function hashDemo(t){let h1=0xdeadbeef,h2=0x41c6ce57;for(let i=0;i<t.length;i++)
 const ENVIOS_DEMO=[];
 const ENV_DEMO={hash:t=>hashDemo("demo-avivah|"+t),enviar:(para,assunto)=>{ENVIOS_DEMO.push({para:para,assunto:assunto});},
   hoje:()=>hojeStr(),link:()=>String(location.href).split("#")[0].split("?")[0],nomeMin:"Ministério Avivah"};
-const DEMO_KEY="louvor_demo_v9";
+const DEMO_KEY="louvor_demo_v10";
 let demoMem=null;
 function seed(){
   const now=new Date(), y=now.getFullYear(), m=now.getMonth();
@@ -926,7 +963,15 @@ function seed(){
     {id:"e2",data:dia(17),hora:"15:00",titulo:"Ensaio geral",tipo:"ensaio",local:"Templo",descricao:"Músicas novas do mês. Trazer os instrumentos."},
     {id:"e3",data:dia(31),hora:"19:30",titulo:"Confraternização do louvor",tipo:"confra",local:"Casa da Lorena",descricao:"Cada um leva um prato de salgado ou doce."}
   ];
-  return JSON.parse(JSON.stringify({membros:membros,cultos:cultos,limpeza:limpeza,eventos:eventos,avisos:[]}));
+  const ny=m===11?y+1:y, nm=(m+1)%12; let feitos=0;
+  for(let d=1;d<=14&&feitos<2;d++){
+    const dt=new Date(ny,nm,d), dow=dt.getDay(); if(dow!==0&&dow!==2) continue;
+    cultos.push({id:"n"+d,data:ny+"-"+pad(nm+1)+"-"+pad(d),hora:dow===0?"18:00":"19:30",titulo:dow===0?"Culto de Domingo":"Culto de Terça",ministroId:feitos?"m3":"m1",equipe:"",obs:"",
+      funcoes:F("Kelly, Yara","Daniel","Davidson","Pablo","Felipe","","Michelle","Gabriel"),dresscode:dow===0?["#ffffff","#d9c4a3"]:[],musicas:[vz(),vz(),vz(),vz(),vz()],feedback:null});
+    feitos++;
+  }
+  const avisos=[{mes:y+"-"+pad(m+1),enviadoEm:"",enviadoDia:"",enviadoPor:"",lembrete3:"",lembrete6:"",publicado:true}];
+  return JSON.parse(JSON.stringify({membros:membros,cultos:cultos,limpeza:limpeza,eventos:eventos,avisos:avisos}));
 }
 function demoDb(){
   if(demoMem) return demoMem;
@@ -941,7 +986,10 @@ const localApi={
     const copia=JSON.parse(JSON.stringify(demoDb()));
     const r=processar(copia,Object.assign({action:action},payload),ENV_DEMO);
     demoMem=copia; lsSet(DEMO_KEY,JSON.stringify(copia));
-    if(TABELAS_POR_ACAO[action]) r.dados=dadosPublicos(copia);
+    if(TABELAS_POR_ACAO[action]){
+      r.dados=dadosPublicos(copia);
+      const q=usuarioDoToken(copia,payload&&payload.token,ENV_DEMO); if(q&&q.lider) r.rascunhos=rascunhosDe(copia);
+    }
     return JSON.parse(JSON.stringify(r));
   }
 };
@@ -963,6 +1011,7 @@ const api=CONFIG.API_URL?remoteApi:localApi;
 async function chamar(action,payload){
   try{
     const r=await api.call(action,Object.assign({token:S.token},payload||{}));
+    if(r&&r.rascunhos){S.rasc=r.rascunhos;lsSet("louvor_rasc",JSON.stringify(r.rascunhos));}
     if(r&&r.dados){aplicarDados(r.dados);S.frescoEm=Date.now();}
     return r;
   }
@@ -976,15 +1025,24 @@ async function chamar(action,payload){
 /* ================= Estado ================= */
 const agora=new Date();
 const CACHE_KEY=CONFIG.API_URL?"louvor_cache_v1":"louvor_cache_demo";
-const S={cultos:[],membros:[],limpeza:[],eventos:[],avisos:[],lid:{indisp:{},motivos:{}},ano:agora.getFullYear(),mes:agora.getMonth(),aba:"escala",
+const S={rasc:null,cultos:[],membros:[],limpeza:[],eventos:[],avisos:[],lid:{indisp:{},motivos:{}},ano:agora.getFullYear(),mes:agora.getMonth(),aba:"escala",
   token:lsGet("louvor_token"),eu:lerJsonLocal("louvor_eu",null),carregando:true,erro:null,membrosBase:[],frescoEm:0};
 if(!S.token) S.eu=null;
 function lerJsonLocal(k,padrao){try{const v=lsGet(k);return v?JSON.parse(v):padrao;}catch(e){return padrao;}}
 let FOTOS=lerJsonLocal("louvor_fotos",{}), buscandoFotos=false;
 function mesclarFotos(){S.membros=S.membrosBase.map(m=>Object.assign({},m,{foto:(FOTOS[m.id]&&FOTOS[m.id].v===m.fotoV)?FOTOS[m.id].foto:""}));}
+function mesclarRascunhos(){
+  if(!ehLider()||!S.rasc) return;
+  const mc={}, ml={};
+  (S.rasc.cultos||[]).forEach(c=>{mc[c.id]=c;}); (S.rasc.limpeza||[]).forEach(x=>{ml[x.id]=x;});
+  S.cultos=S.cultos.map(c=>c.rascunho&&mc[c.id]?Object.assign({},mc[c.id],{rascunhoLider:true}):c);
+  S.limpeza=S.limpeza.map(x=>x.rascunho&&ml[x.id]?Object.assign({},ml[x.id],{rascunhoLider:true}):x);
+}
+function mesPublicadoCli(chave){return S.avisos.some(a=>a.mes===chave&&a.publicado);}
 function aplicarDados(d,semGuardar){
   if(!d) return;
   S.membrosBase=d.membros||[]; S.cultos=d.cultos||[]; S.limpeza=d.limpeza||[]; S.eventos=d.eventos||[]; S.avisos=d.avisos||[];
+  mesclarRascunhos();
   mesclarFotos(); S.erro=null; S.carregando=false;
   if(!semGuardar) lsSet(CACHE_KEY,JSON.stringify(d));
   atualizarFotos();
@@ -1073,7 +1131,7 @@ function render(){
     el.innerHTML='<div class="vazio"><p class="vazio-t">Nenhum culto escalado em '+MESES[S.mes].toLowerCase()+'</p><p>'+(ehLider()?'Toque em “Novo culto” para lançar a escala.':'A escala deste mês ainda não foi lançada.')+'</p></div>';
     return;
   }
-  el.innerHTML=S.aba==="escala"?(ehLider()?barraAviso()+avisoMesLider(lista):'')+'<div class="grade">'+lista.map(cardCulto).join("")+'</div>':viewRepertorios(lista);
+  el.innerHTML=S.aba==="escala"?(ehLider()?barraAviso()+avisoMesLider(lista):infoRascunho(lista))+'<div class="grade">'+lista.map(cardCulto).join("")+'</div>':viewRepertorios(lista);
 }
 function indispDe(id,data){return ((S.lid.indisp||{})[id]||[]).find(i=>i.data===data)||null;}
 function presencaDe(obj,id){return (obj.presencas||{})[id]||null;}
@@ -1122,7 +1180,16 @@ function avisoMesLider(lista){
   const partes=[]; if(comAlerta) partes.push(comAlerta+(comAlerta>1?' cultos com alertas':' culto com alertas')); if(recusas) partes.push(recusas+(recusas>1?' pessoas avisaram que não vão':' pessoa avisou que não vai'));
   return '<div class="alerta-mes">'+ICO_ALERTA+'<span><strong>'+MESES[S.mes]+': '+partes.join(" · ")+'.</strong> Abra o culto para ver os detalhes. Só líderes veem este aviso.</span></div>';
 }
+function cardRascunho(c){
+  const d=parseData(c.data);
+  return '<button class="card'+(c.data<hojeStr()?' passado':'')+'" data-act="abrir" data-id="'+esc(c.id)+'" aria-label="'+esc(c.titulo+', '+dataCurta(c.data)+', equipe em definição')+'">'+
+    '<span class="card-top"><span class="tag-data">'+pad(d.getDate())+'/'+pad(d.getMonth()+1)+'</span>'+(c.hora?'<span class="hora">'+esc(c.hora)+'</span>':'')+dots(c.dresscode)+'</span>'+
+    '<span class="rasc-mid"><span class="rasc-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.6 3.4-5.5 6.5-5.5s5.7 1.9 6.5 5.5"/><path d="M17 8v6M14 11h6"/></svg></span>'+
+    '<span><strong>'+esc(c.titulo)+'</strong>Equipe em definição</span></span>'+
+    '<span class="card-dia">'+diaSemana(d)+'</span></button>';
+}
 function cardCulto(c){
+  if(c.rascunho) return cardRascunho(c);
   const d=parseData(c.data), f=c.funcoes||{}, m=membro(c.ministroId);
   const equipe=[];
   FUNCOES.forEach(x=>String(f[x[0]]||"").split(/\s*,\s*|\s+e\s+/).filter(Boolean).forEach(n=>equipe.push({nome:n,funcao:x[1]})));
@@ -1137,6 +1204,7 @@ function cardCulto(c){
     :(c.equipe?'<span class="equipe-grid"><span class="fr" style="white-space:pre-line;grid-column:1/-1">'+esc(c.equipe)+'</span></span>':'<span class="equipe-grid"><span class="fr nd" style="grid-column:1/-1">Equipe a definir</span></span>');
   return '<button class="card'+(c.data<hojeStr()?' passado':'')+'" data-act="abrir" data-id="'+esc(c.id)+'" aria-label="'+esc(c.titulo+', '+dataCurta(c.data)+', ministro '+nomeMinistro(c.ministroId))+'">'+
     '<span class="card-top"><span class="tag-data">'+pad(d.getDate())+'/'+pad(d.getMonth()+1)+'</span>'+(c.hora?'<span class="hora">'+esc(c.hora)+'</span>':'')+
+      (c.rascunhoLider?'<span class="tag-rasc">Rascunho</span>':'')+
       (alertas.length&&futuro?'<span class="badge-alerta">'+ICO_ALERTA+alertas.length+(alertas.length>1?' alertas':' alerta')+'</span>':'')+dots(c.dresscode)+'</span>'+
     '<span class="min-dest"><span class="av-wrap grande'+(m&&futuro&&recusou(c,m.id)?' recusou':'')+(m&&indispDe(m.id,c.data)?' anel-indisp':'')+'">'+avatar(m)+(futuro?selo(c,m):'')+'</span>'+'<span class="min-info"><span class="min-rot">Ministro</span><span class="min-nm">'+esc(m?m.nome:"A definir")+'</span><span class="min-tit">'+esc(c.titulo)+'</span></span></span>'+
     grade+
@@ -1154,6 +1222,7 @@ function viewRepertorios(lista){
   return '<div class="acoes-topo"><button class="btn ghost" data-act="copiarMes" style="background:var(--surface)">Copiar repertórios do mês</button></div>'+
     lista.map(c=>{
       const n=preenchidas(c), d=parseData(c.data);
+      if(c.rascunho) return '<section class="rep-bloco"><div class="rep-h"><button data-act="abrir" data-id="'+esc(c.id)+'"><span><span class="rep-d">'+pad(d.getDate())+'/'+pad(d.getMonth()+1)+' · '+diaSemana(d)+(c.hora?' · '+esc(c.hora):'')+'</span><span class="rep-t">'+esc(c.titulo)+'</span></span></button></div><p class="cm">Equipe e repertório em definição.</p></section>';
       return '<section class="rep-bloco"><div class="rep-h"><button data-act="abrir" data-id="'+esc(c.id)+'">'+avatar(membro(c.ministroId))+
         '<span><span class="rep-d">'+pad(d.getDate())+'/'+pad(d.getMonth()+1)+' · '+diaSemana(d)+(c.hora?' · '+esc(c.hora):'')+'</span><span class="rep-t">'+esc(c.titulo)+'</span><span class="rep-m">Ministro: '+esc(nomeMinistro(c.ministroId))+'</span></span></button>'+pill(n)+'</div>'+
         (n?'<ol class="songs">'+[0,1,2,3,4].map(i=>songRow((c.musicas||[])[i],i)).join("")+'</ol>':'<p class="cm">O ministro ainda não lançou as músicas.</p>')+'</section>';
@@ -1167,8 +1236,8 @@ function viewLimpeza(){
     l.map(x=>{
       const d=parseData(x.data);
       const nomes=String(x.responsaveis).split(/\s*,\s*|\s+e\s+/).filter(Boolean);
-      return '<article class="card limp'+(x.data<hoje?' passado':'')+'"><span class="card-top"><span class="tag-data">'+pad(d.getDate())+'/'+pad(d.getMonth()+1)+'</span></span>'+
-        '<div class="card-mid"><div class="pessoas">'+nomes.map(n=>'<span class="pessoa">'+esc(n)+'</span>').join("")+'</div></div>'+
+      return '<article class="card limp'+(x.data<hoje?' passado':'')+'"><span class="card-top"><span class="tag-data">'+pad(d.getDate())+'/'+pad(d.getMonth()+1)+'</span>'+(x.rascunhoLider?'<span class="tag-rasc">Rascunho</span>':'')+'</span>'+
+        '<div class="card-mid">'+(x.rascunho?'<p class="limp-obs">Equipe em definição</p>':'<div class="pessoas">'+nomes.map(n=>'<span class="pessoa">'+esc(n)+'</span>').join("")+'</div>')+'</div>'+
         (ehLider()?'<div class="limp-acoes"><button class="btn ghost sm" data-act="editLimpeza" data-id="'+esc(x.id)+'">Editar</button><button class="btn ghost danger sm" data-act="delLimpeza" data-id="'+esc(x.id)+'">Excluir</button></div>':'')+
         '<span class="card-dia">'+diaSemana(d)+'</span></article>';
     }).join("")+'</div>';
@@ -1215,8 +1284,12 @@ function viewAgenda(){
   const mesNome=MESES[S.mes].toLowerCase(), esteMes=S.ano===agora.getFullYear()&&S.mes===agora.getMonth();
   const quando=esteMes?"este mês":"em "+mesNome;
   const n=itens.length;
-  const sub=n?'Você vai servir em <strong>'+n+(n>1?' compromissos':' compromisso')+'</strong> '+quando+'. Confira:'
-    :'Você não está na escala '+(esteMes?'deste mês':'de '+mesNome)+'. Aproveite para acompanhar os cultos e os eventos do ministério.';
+  const rascMes=cultosDoMes().length>0&&!mesPublicadoCli(S.ano+"-"+pad(S.mes+1));
+  if(rascMes&&!ehLider()) return '<div class="ag-head">'+avatar(membro(eu.id)||eu)+'<div><p class="ag-ola">Olá, '+esc(primeiro)+'!</p><p class="ag-sub">A equipe de '+mesNome+' ainda está sendo definida. Assim que a escala for publicada, seus compromissos aparecem aqui.</p>'+
+    '<button type="button" class="btn ghost sm" data-act="indisp" style="margin-top:8px">Marcar dias que não posso</button></div></div>'+
+    (evs.length?'<p class="ag-sec">Eventos do ministério '+quando+'</p><div class="ag-list">'+evs.map(linhaEv).join("")+'</div>':'');
+  const sub=(rascMes?'<strong>Escala em rascunho.</strong> ':'')+(n?'Você vai servir em <strong>'+n+(n>1?' compromissos':' compromisso')+'</strong> '+quando+'. Confira:'
+    :'Você não está na escala '+(esteMes?'deste mês':'de '+mesNome)+'. Aproveite para acompanhar os cultos e os eventos do ministério.');
   const linha=it=>{
     const d=parseData(it.data), passou=it.data<hoje;
     const dia='<span class="ag-dia"><b>'+pad(d.getDate())+'</b><span>'+SEM[d.getDay()]+'</span></span>';
@@ -1247,32 +1320,42 @@ function viewAgenda(){
 }
 
 function chaveMes(){return S.ano+"-"+pad(S.mes+1);}
+function infoRascunho(lista){
+  if(!lista.some(c=>c.rascunho)) return "";
+  return '<div class="info-mes"><strong>A equipe de '+MESES[S.mes].toLowerCase()+' ainda está sendo definida.</strong> Os dias de culto já estão abaixo; a equipe aparece quando a escala for publicada.</div>';
+}
 function barraAviso(){
-  const a=S.avisos.find(x=>x.mes===chaveMes());
-  return '<div class="aviso-bar"><span class="aviso-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg></span>'+
-    '<span class="aviso-txt"><strong>'+(a?'Equipe avisada':'Escala de '+MESES[S.mes].toLowerCase()+' pronta?')+'</strong>'+
-    (a?'Enviado '+dataHoraCurta(a.enviadoEm)+(a.enviadoPor?' por '+esc(a.enviadoPor):'')+'. Ministros com repertório incompleto recebem lembretes 3 e 6 dias depois.':'Avise a equipe por e-mail: cada um recebe os próprios compromissos do mês.')+'</span>'+
-    '<button class="btn sm'+(a?' ghost':'')+'" data-act="avisar">'+(a?'Reenviar':'Avisar a equipe')+'</button></div>';
+  const a=S.avisos.find(x=>x.mes===chaveMes()), pub=!!(a&&a.publicado);
+  const ico=pub?'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M5 12l5 5 9-10"/></svg>':'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>';
+  return '<div class="aviso-bar'+(pub?'':' rasc')+'"><span class="aviso-ico" aria-hidden="true">'+ico+'</span>'+
+    '<span class="aviso-txt"><strong>'+(pub?'Escala de '+MESES[S.mes].toLowerCase()+' publicada':'Escala de '+MESES[S.mes].toLowerCase()+' em rascunho')+'</strong>'+
+    (pub?(a.enviadoEm?'E-mails enviados '+dataHoraCurta(a.enviadoEm)+(a.enviadoPor?' por '+esc(a.enviadoPor):'')+'. ':'Publicada sem envio de e-mail. ')+'Todos veem a equipe.'
+      :'Todos veem os dias de culto; só os líderes veem a equipe. Publique quando estiver pronta.')+
+    (pub?' <button type="button" class="link-btn" data-act="despublicar">Voltar para rascunho</button>':'')+'</span>'+
+    '<button class="btn sm'+(pub?' ghost':'')+'" data-act="avisar">'+(pub?'Reenviar e-mails':'Publicar escala')+'</button></div>';
 }
 async function telaAvisar(){
   let lista;
   try{lista=(await chamar("listMembros",{})).membros;}catch(err){toast(err.message);return;}
-  const com=lista.filter(m=>m.email), sem=lista.filter(m=>!m.email), a=S.avisos.find(x=>x.mes===chaveMes());
+  const com=lista.filter(m=>m.email), sem=lista.filter(m=>!m.email), a=S.avisos.find(x=>x.mes===chaveMes()), pub=!!(a&&a.publicado);
   const eu=S.membros.find(m=>m.id===S.eu.id)||S.eu;
   const previa=emailEscala({membros:S.membros,cultos:S.cultos,limpeza:S.limpeza,eventos:S.eventos},eu,chaveMes(),"#",CONFIG.NOME);
-  abrirSheet('<div class="eyebrow">Avisos por e-mail</div><h2 class="sh-title" id="sheetTitulo">Avisar a equipe · '+MESES[S.mes]+'</h2>'+
-    '<p class="lead">Cada membro recebe um e-mail com os compromissos dele em '+MESES[S.mes].toLowerCase()+', os eventos do ministério e o link do app. Ministros com repertório incompleto recebem lembretes 3 e 6 dias depois deste envio, e todos recebem um lembrete às 7h no dia em que servem.</p>'+
-    (a?'<p class="nota" style="margin-top:0">Já enviado '+dataHoraCurta(a.enviadoEm)+'. Reenviar manda a versão atual da escala para todos; os lembretes continuam contando a partir do primeiro envio.</p>':'')+
-    '<div class="sec"><h3>'+com.length+(com.length===1?' pessoa vai receber':' pessoas vão receber')+'</h3>'+
-    (sem.length?'<p class="hint" style="margin:0 0 6px">Sem e-mail cadastrado ('+sem.length+'): '+sem.map(m=>esc(m.nome)).join(", ")+'. Cadastre em “Membros” ou peça para a pessoa preencher em “Minha conta”.</p>':'<p class="hint" style="margin:0">Todos os membros têm e-mail cadastrado.</p>')+'</div>'+
+  abrirSheet('<div class="eyebrow">'+(pub?'Avisos por e-mail':'Publicar escala')+'</div><h2 class="sh-title" id="sheetTitulo">'+(pub?'Reenviar e-mails':'Publicar a escala')+' · '+MESES[S.mes]+'</h2>'+
+    '<p class="lead">'+(pub?'Cada membro recebe de novo o e-mail com os compromissos dele em '+MESES[S.mes].toLowerCase()+'. Os lembretes continuam contando a partir da primeira publicação.'
+      :'Ao publicar, todos passam a ver a equipe, o repertório e a presença de '+MESES[S.mes].toLowerCase()+'. Os lembretes automáticos (confirmação 2 dias antes, aviso no dia e repertório pendente) começam a valer para este mês.')+'</p>'+
+    (pub?'':'<div class="form"><label class="check" for="pubEmail"><input type="checkbox" id="pubEmail"'+(com.length?' checked':' disabled')+'><span>Enviar e-mail para a equipe agora<small>'+(com.length?com.length+(com.length===1?' pessoa vai receber':' pessoas vão receber')+' os próprios compromissos do mês.':'Ninguém tem e-mail cadastrado ainda. Dá para publicar mesmo assim.')+'</small></span></label></div>')+
+    (pub?'<div class="sec"><h3>'+com.length+(com.length===1?' pessoa vai receber':' pessoas vão receber')+'</h3></div>':'')+
+    (sem.length?'<p class="hint" style="margin:8px 0 0">Sem e-mail cadastrado ('+sem.length+'): '+sem.map(m=>esc(m.nome)).join(", ")+'.</p>':'')+
     '<details class="previa"><summary>Ver como fica o seu e-mail</summary><div class="previa-box">'+previa.html+'</div></details>'+
-    '<p class="err" id="errAvisar"></p><div class="actions"><button class="btn" id="btnEnviarAviso" type="button"'+(com.length?'':' disabled')+'>'+(a?'Reenviar e-mails':'Enviar e-mails')+'</button><button class="btn ghost" type="button" data-act="fechar">Cancelar</button></div>');
+    '<p class="err" id="errAvisar"></p><div class="actions"><button class="btn" id="btnEnviarAviso" type="button"'+(pub&&!com.length?' disabled':'')+'>'+(pub?'Reenviar e-mails':'Publicar escala')+'</button><button class="btn ghost" type="button" data-act="fechar">Cancelar</button></div>');
   $("#btnEnviarAviso").onclick=async()=>{
-    const btn=$("#btnEnviarAviso"); ocupado(btn,"Enviando…");
+    const btn=$("#btnEnviarAviso"), enviar=pub?true:!!($("#pubEmail")&&$("#pubEmail").checked);
+    ocupado(btn,enviar?"Enviando…":"Publicando…");
     try{
-      const r=await chamar("avisarEquipe",{ano:S.ano,mes:S.mes,linkApp:String(location.href).split("#")[0].split("?")[0]});
+      const r=await chamar("publicarMes",{ano:S.ano,mes:S.mes,enviarEmail:enviar,linkApp:String(location.href).split("#")[0].split("?")[0]});
       fecharSheet(); render();
-      toast((CONFIG.API_URL?"":"Demonstração: nada foi enviado de verdade. ")+"E-mails para "+r.enviados+(r.enviados===1?" pessoa":" pessoas"));
+      const demo=CONFIG.API_URL?"":"Demonstração: nenhum e-mail sai de verdade. ";
+      toast(enviar?demo+(pub?"E-mails reenviados para ":"Escala publicada e e-mails enviados para ")+r.enviados+(r.enviados===1?" pessoa":" pessoas"):"Escala publicada");
     }catch(err){$("#errAvisar").textContent=err.message;livre(btn);}
   };
 }
@@ -1334,7 +1417,10 @@ function prepararLogin(){
 }
 function comLogin(motivo,acao){if(S.eu) acao(); else telaLogin(motivo,acao);}
 function sairConta(expirou){
-  S.token=null; S.eu=null; lsSet("louvor_eu",null); if(S.aba==="agenda") S.aba="escala"; lsSet("louvor_token",null); render();
+  S.token=null; S.eu=null; lsSet("louvor_eu",null); if(S.aba==="agenda") S.aba="escala"; lsSet("louvor_token",null);
+  S.rasc=null; lsSet("louvor_rasc",null); S.lid={indisp:{},motivos:{}};
+  const pub=lerJsonLocal(CACHE_KEY,null); if(pub) aplicarDados(pub,true);
+  render();
   if(expirou) toast("Sua sessão expirou. Entre novamente.");
 }
 function telaConta(){
@@ -1371,6 +1457,14 @@ function telaConta(){
 }
 
 /* ----- Culto ----- */
+function abrirRascunho(c){
+  const d=parseData(c.data), dc=normalizarDresscode(c.dresscode);
+  abrirSheet('<div class="eyebrow">'+SEM_L[d.getDay()]+', '+d.getDate()+' de '+MESES[d.getMonth()].toLowerCase()+(c.hora?' · '+esc(c.hora):'')+'</div>'+
+    '<h2 class="sh-title" id="sheetTitulo">'+esc(c.titulo)+'</h2>'+
+    '<p class="nota" style="margin-top:0">A equipe deste culto ainda está sendo definida. Assim que a escala do mês for publicada, ela aparece aqui.</p>'+
+    ((dc.length||podeDresscode())?'<div class="sec"><div class="sec-h"><h3>Dresscode</h3>'+(podeDresscode()?'<button type="button" class="btn ghost sm" data-act="dresscode" data-id="'+esc(c.id)+'">'+(dc.length?'Editar':'Definir')+'</button>':'')+'</div>'+
+      (dc.length?'<div class="dc-list">'+dc.map(h=>'<span class="dc-item"><span class="dot" style="background:'+h+'"></span>'+esc(nomeCor(h))+'</span>').join("")+'</div>':'<p class="nd" style="margin:0">Ainda sem dresscode.</p>')+'</div>':''));
+}
 function secAlertas(c){
   if(c.data<hojeStr()) return "";
   const al=alertasCulto(c); if(!al.length) return "";
@@ -1423,6 +1517,7 @@ function telaDresscode(id){
 }
 function abrirCulto(id){
   const c=S.cultos.find(x=>x.id===id); if(!c){fecharSheet();return;}
+  if(c.rascunho) return abrirRascunho(c);
   const d=parseData(c.data), n=preenchidas(c), ms=c.musicas||[], f=c.funcoes||{}, dc=normalizarDresscode(c.dresscode), m=membro(c.ministroId);
   const temF=FUNCOES.some(x=>f[x[0]]);
   const btnRep=(!S.eu||podeRep(c))?'<button class="btn" data-act="editarRep" data-id="'+esc(c.id)+'">'+(n?'Editar repertório':'Lançar repertório')+'</button>':'';
@@ -1877,6 +1972,11 @@ document.addEventListener("click",async e=>{
     case "membros": membrosCompletos=[]; telaMembros(); break;
     case "editMembro": telaMembros(id); break;
     case "avisar": telaAvisar(); break;
+    case "despublicar": {
+      if(!b.classList.contains("armado")){b.classList.add("armado");b.dataset.txt=b.textContent;b.textContent="Toque de novo para voltar ao rascunho";setTimeout(()=>{if(b.isConnected){b.classList.remove("armado");b.textContent=b.dataset.txt;}},4000);break;}
+      try{await chamar("despublicarMes",{ano:S.ano,mes:S.mes});render();carregarDadosLider();toast("A escala voltou para rascunho");}catch(err){toast(err.message);}
+      break;
+    }
     case "indisp": telaIndisp(); break;
     case "dresscode": comLogin("Entre com sua conta para definir o dresscode.",()=>telaDresscode(id)); break;
     case "presenca": {
@@ -1934,7 +2034,11 @@ async function carregar(){
 }
 async function carregarDadosLider(){
   if(!ehLider()) return;
-  try{const r=await chamar("dadosLider",{}); S.lid={indisp:r.indisp||{},motivos:r.motivos||{}}; render();}catch(e){}
+  try{
+    const r=await chamar("dadosLider",{}); S.lid={indisp:r.indisp||{},motivos:r.motivos||{}};
+    if(r.rascunhos){S.rasc=r.rascunhos; lsSet("louvor_rasc",JSON.stringify(r.rascunhos)); mesclarRascunhos();}
+    render();
+  }catch(e){}
 }
 async function restaurarSessao(){
   if(!S.token) return;
@@ -1966,6 +2070,7 @@ $("#nomeMin").innerHTML=esc(CONFIG.NOME)+"<small>Louvor</small>";
 $("#demoBanner").hidden=!!CONFIG.API_URL;
 $("#tons").innerHTML=TONS.map(t=>'<option value="'+t+'">').join("");
 $("#titulos").innerHTML=TITULOS.map(t=>'<option value="'+esc(t)+'">').join("");
+if(S.token) S.rasc=lerJsonLocal("louvor_rasc",null);
 const inicial=lerJsonLocal(CACHE_KEY,null);
 if(inicial){aplicarDados(inicial,true);}
 if(S.eu) S.aba="agenda";
