@@ -416,6 +416,41 @@ button.ag-item:hover{border-color:var(--flame)}
 .pres-st svg{width:15px;height:15px;flex:none}
 .ag-bloco.pedido{border-color:#9fd0b0;background:#f3fbf6}
 .ag-sec.pedidos{color:var(--ok)}
+.aus-topo{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:14px 16px;box-shadow:var(--shadow)}
+.aus-topo h2{margin:0;font-family:var(--f-display);font-weight:800;font-size:20px;color:var(--brand)}
+.aus-topo p{margin:4px 0 0;font-size:13px;color:var(--muted)}
+.aus-resumo{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.aus-num{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px;display:flex;flex-direction:column;gap:2px}
+.aus-num b{font-family:var(--f-display);font-size:26px;color:var(--danger);line-height:1}
+.aus-num.pend b{color:var(--warn)}.aus-num.ok b{color:var(--sky)}
+.aus-num span{font-size:12px;color:var(--muted);line-height:1.3}
+.aus-sec{margin:6px 2px -2px;font-family:var(--f-display);font-size:12px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.aus-dia{background:var(--surface);border:1px solid var(--line);border-radius:16px;overflow:hidden}
+.aus-dia.passado{opacity:.6}
+.aus-dia-h{display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--surface-2);font-size:13.5px;color:var(--ink)}
+.aus-dia-h .tag-data{font-size:15px;padding:2px 10px}
+.aus-item{display:flex;gap:10px;align-items:flex-start;width:100%;text-align:left;padding:10px 12px;border:0;border-top:1px solid var(--line);background:transparent}
+button.aus-item:hover{background:var(--surface-2)}
+.aus-item .av-p{width:36px;height:36px;font-size:12px}
+.aus-txt{display:flex;flex-direction:column;gap:2px;min-width:0;font-size:13.5px;color:var(--muted)}
+.aus-nome{font-weight:700;font-size:14.5px;color:var(--ink);display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+.aus-tag{font-style:normal;font-size:11px;font-weight:700;padding:1px 8px;border-radius:999px}
+.aus-tag.r{background:var(--flame-soft);color:var(--danger)}.aus-tag.o{background:var(--warn-soft);color:var(--warn)}.aus-tag.b{background:var(--sky-soft);color:#1f6aa5}
+.aus-conf{color:var(--danger);font-weight:600}
+.aus-pend{color:var(--warn);font-weight:600}
+.aus-ok{color:var(--ok)}
+.aus-sub{display:inline-flex;align-items:center;gap:5px;color:#1f6aa5;font-weight:700}
+.aus-sub svg{width:13px;height:13px}
+.aus-mot{font-style:italic}
+.aus-pessoas{background:var(--surface);border:1px solid var(--line);border-radius:16px;overflow:hidden}
+.aus-p{display:flex;align-items:center;gap:10px;padding:10px 12px;border-top:1px solid var(--line)}
+.aus-p:first-child{border-top:0}
+.aus-p .av-p{width:34px;height:34px;font-size:12px}
+.aus-p span{flex:1;min-width:0}
+.aus-p b{display:block;font-size:14px}
+.aus-p small{color:var(--muted);font-size:12.5px}
+.aus-p em{font-style:normal;font-family:var(--f-display);font-weight:800;color:var(--danger);font-size:16px}
+@media (max-width:440px){.aus-resumo{grid-template-columns:1fr 1fr 1fr;gap:6px}.aus-num{padding:10px 8px}.aus-num b{font-size:22px}}
 .min-list .usr{font-family:var(--f-mono);font-size:12px;color:var(--muted);font-weight:500}
 
 /* Tela de login: a própria escala desfocada ao fundo, cartão à frente */
@@ -468,6 +503,7 @@ button.ag-item:hover{border-color:var(--flame)}
       <button role="tab" id="tab-repertorio" data-act="aba" data-aba="repertorio" aria-selected="false">Repertórios</button>
       <button role="tab" id="tab-limpeza" data-act="aba" data-aba="limpeza" aria-selected="false">Limpeza</button>
       <button role="tab" id="tab-eventos" data-act="aba" data-aba="eventos" aria-selected="false">Eventos</button>
+      <button role="tab" id="tab-ausencias" data-act="aba" data-aba="ausencias" aria-selected="false" hidden>Ausências</button>
     </div>
   </div>
 </header>
@@ -523,7 +559,7 @@ const CONFIG = {
   API_URL: "https://script.google.com/macros/s/AKfycbxrhX4edbA7aVQrjiIY4e7g8OeeX_7A9HvKmPRTUlxskJDYWYRQ8M6rKq8xc8HBBHF8/exec",
   NOME: "Ministério Avivah"
 };
-const VERSAO_APP = "2026.10.22-4"; // muda a cada versão enviada; não precisa editar
+const VERSAO_APP = "2026.10.22-5"; // muda a cada versão enviada; não precisa editar
 /* ======================================================== */
 
 const MESES=["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
@@ -1245,10 +1281,12 @@ const LISTA_FUNCAO={backing:"cantores",guitarra:"musicos",bateria:"musicos",tecl
 function render(){
   $("#mesLabel").innerHTML=esc(MESES[S.mes])+(S.ano!==agora.getFullYear()?' <small>'+S.ano+'</small>':'');
   if(S.aba==="agenda"&&!S.eu) S.aba="escala";
+  if(S.aba==="ausencias"&&!ehLider()) S.aba="escala";
+  $("#tab-ausencias").hidden=!ehLider();
   $("#tab-agenda").hidden=!S.eu;
-  ["agenda","escala","repertorio","limpeza","eventos"].forEach(a=>$("#tab-"+a).setAttribute("aria-selected",String(S.aba===a)));
+  ["agenda","escala","repertorio","limpeza","eventos","ausencias"].forEach(a=>$("#tab-"+a).setAttribute("aria-selected",String(S.aba===a)));
   $("#fabTxt").textContent={limpeza:"Nova limpeza",eventos:"Novo evento"}[S.aba]||"Novo culto";
-  $("#fab").hidden=!ehLider()||S.aba==="repertorio"||S.aba==="agenda";
+  $("#fab").hidden=!ehLider()||S.aba==="repertorio"||S.aba==="agenda"||S.aba==="ausencias";
   $("#btnEntrar").hidden=!!S.eu; $("#btnMembros").hidden=!ehLider(); $("#btnConta").hidden=!S.eu;
   if(S.eu){
     const m=membro(S.eu.id)||S.eu;
@@ -1259,6 +1297,7 @@ function render(){
   if(S.carregando){el.innerHTML='<p class="vazio">Carregando a escala…</p>';return;}
   if(S.erro){el.innerHTML='<div class="vazio"><p>'+esc(S.erro)+'</p><button class="btn ghost" data-act="recarregar">Tentar de novo</button></div>';return;}
   if(S.aba==="agenda"){el.innerHTML=viewAgenda();return;}
+  if(S.aba==="ausencias"){el.innerHTML=viewAusencias();return;}
   if(S.aba==="limpeza"){el.innerHTML=viewLimpeza();return;}
   if(S.aba==="eventos"){el.innerHTML=viewEventos();return;}
   const lista=cultosDoMes();
@@ -1559,6 +1598,73 @@ async function telaAvisar(){
       toast(enviar?demo+(pub?"E-mails reenviados para ":"Escala publicada e e-mails enviados para ")+r.enviados+(r.enviados===1?" pessoa":" pessoas"):"Escala publicada");
     }catch(err){$("#errAvisar").textContent=err.message;livre(btn);}
   };
+}
+
+/* ----- Ausências (líderes) ----- */
+function viewAusencias(){
+  const pref=S.ano+"-"+pad(S.mes+1)+"-", mesN=MESES[S.mes].toLowerCase(), hoje=hojeStr();
+  const nomeId=id=>{const m=membro(id);return m?m.nome:"Membro";};
+  const prim=n=>String(n||"").split(/\s+/)[0];
+  const itens=[];
+  const compromissosDe=(m,data)=>{
+    const l=[];
+    S.cultos.filter(c=>c.data===data&&papeisDe(c,m).length).forEach(c=>l.push(c.titulo+" ("+papeisDe(c,m).join(", ")+")"));
+    S.limpeza.filter(x=>x.data===data&&estaNaLista(x.responsaveis,m.nome)).forEach(()=>l.push("Limpeza"));
+    return l;
+  };
+  Object.keys(S.lid.indisp||{}).forEach(id=>(S.lid.indisp[id]||[]).forEach(i=>{
+    if(!String(i.data).startsWith(pref)) return;
+    const m=membro(id)||{id:id,nome:nomeId(id)};
+    itens.push({data:i.data,ordem:0,tipo:"indisp",pessoa:m.nome,id:id,motivo:i.motivo,conflito:compromissosDe(m,i.data)});
+  }));
+  const varrer=(lista,tipo)=>lista.filter(a=>String(a.data).startsWith(pref)).forEach(a=>{
+    const titulo=tipo==="culto"?a.titulo:"Limpeza";
+    const comPedido={};
+    (a.pedidos||[]).filter(p=>p.status!=="cancelado").forEach(p=>{
+      comPedido[p.de]=1;
+      itens.push({data:a.data,ordem:1,tipo:p.status==="aceito"?"subst":p.status==="recusado"?"recusado":"pendente",pessoa:p.deNome,id:p.de,sub:p.paraNome,funcoes:p.funcoes||[],
+        motivo:S.lid.motivos["p:"+p.id]||"",alvo:titulo,abrir:tipo==="culto"?a.id:"",tipoAlvo:tipo});
+    });
+    (a.substituicoes||[]).forEach(sb=>{
+      if(comPedido[sb.de]) return;
+      itens.push({data:a.data,ordem:1,tipo:"subst",pessoa:sb.deNome,id:sb.de,sub:sb.paraNome,funcoes:sb.funcoes||[],motivo:S.lid.motivos["s:"+a.id+":"+sb.de+":"+sb.para]||"",alvo:titulo,abrir:tipo==="culto"?a.id:"",tipoAlvo:tipo});
+    });
+    Object.keys(a.presencas||{}).forEach(id=>{
+      const p=a.presencas[id]; if(!p||p.s!=="nao"||comPedido[id]) return;
+      itens.push({data:a.data,ordem:1,tipo:"semsub",pessoa:nomeId(id),id:id,funcoes:[],motivo:S.lid.motivos[(tipo==="culto"?"c:":"l:")+a.id+":"+id]||"",alvo:titulo,abrir:tipo==="culto"?a.id:"",tipoAlvo:tipo});
+    });
+  });
+  varrer(S.cultos,"culto"); varrer(S.limpeza,"limpeza");
+  itens.sort((a,b)=>(a.data+a.ordem+a.pessoa).localeCompare(b.data+b.ordem+b.pessoa));
+  const cont=t=>itens.filter(i=>t.indexOf(i.tipo)>=0).length;
+  const resumo='<div class="aus-resumo">'+
+    '<div class="aus-num"><b>'+cont(["indisp"])+'</b><span>dias indisponíveis</span></div>'+
+    '<div class="aus-num pend"><b>'+cont(["pendente","recusado","semsub"])+'</b><span>sem substituto confirmado</span></div>'+
+    '<div class="aus-num ok"><b>'+cont(["subst"])+'</b><span>substituições feitas</span></div></div>';
+  if(!itens.length) return '<div class="aus-topo"><h2>Ausências de '+mesN+'</h2><p>Só líderes veem esta página.</p></div>'+resumo+'<div class="vazio"><p class="vazio-t">Nenhuma ausência em '+mesN+'</p><p>Quando alguém marcar um dia indisponível ou pedir substituição, aparece aqui.</p></div>';
+  const ROT={indisp:["Indisponível","r"],pendente:["Aguardando aceite","o"],recusado:["Substituto recusou","r"],semsub:["Sem substituto","r"],subst:["Substituído","b"]};
+  const linha=i=>{
+    const rt=ROT[i.tipo];
+    let det="";
+    if(i.tipo==="indisp") det=i.conflito.length?'<span class="aus-conf">Está escalado(a): '+esc(i.conflito.join(" · "))+'</span>':'<span class="aus-ok">Não está escalado(a) neste dia</span>';
+    else if(i.tipo==="subst") det='<span>'+esc(i.alvo)+' · '+esc(i.funcoes.join(", "))+'</span><span class="aus-sub">'+ICO_TROCA+esc(i.sub)+' no lugar</span>';
+    else if(i.tipo==="pendente") det='<span>'+esc(i.alvo)+' · '+esc(i.funcoes.join(", "))+'</span><span class="aus-pend">Pediu a '+esc(prim(i.sub))+', ainda sem resposta</span>';
+    else if(i.tipo==="recusado") det='<span>'+esc(i.alvo)+' · '+esc(i.funcoes.join(", "))+'</span><span class="aus-conf">'+esc(prim(i.sub))+' não pode; falta indicar outra pessoa</span>';
+    else det='<span>'+esc(i.alvo)+'</span><span class="aus-conf">Avisou que não vai e não indicou substituto</span>';
+    const tag=i.abrir?'button type="button" data-act="abrir" data-id="'+esc(i.abrir)+'"':'div';
+    return '<'+tag+' class="aus-item">'+avatarPessoa(i.pessoa)+'<span class="aus-txt"><span class="aus-nome">'+esc(i.pessoa)+'<em class="aus-tag '+rt[1]+'">'+rt[0]+'</em></span>'+det+
+      (i.motivo?'<span class="aus-mot">Motivo: '+esc(i.motivo)+'</span>':'')+'</span></'+(i.abrir?'button':'div')+'>';
+  };
+  const dias={}; itens.forEach(i=>{(dias[i.data]=dias[i.data]||[]).push(i);});
+  const porDia=Object.keys(dias).sort().map(ds=>{
+    const d=parseData(ds), cultosDia=S.cultos.filter(c=>c.data===ds).map(c=>c.titulo);
+    return '<section class="aus-dia'+(ds<hoje?' passado':'')+'"><div class="aus-dia-h"><span class="tag-data">'+pad(d.getDate())+'/'+pad(d.getMonth()+1)+'</span><span><b>'+SEM_L[d.getDay()]+'</b>'+(cultosDia.length?' · '+esc(cultosDia.join(", ")):'')+'</span></div>'+dias[ds].map(linha).join("")+'</section>';
+  }).join("");
+  const pessoas={}; itens.forEach(i=>{(pessoas[i.pessoa]=pessoas[i.pessoa]||[]).push(i);});
+  const porPessoa='<div class="aus-pessoas">'+Object.keys(pessoas).sort((a,b)=>new Set(pessoas[b].map(i=>i.data)).size-new Set(pessoas[a].map(i=>i.data)).size||a.localeCompare(b)).map(n=>
+    '<div class="aus-p">'+avatarPessoa(n)+'<span><b>'+esc(n)+'</b><small>'+pessoas[n].map(i=>{const d=parseData(i.data);return pad(d.getDate())+'/'+pad(d.getMonth()+1);}).filter((v,k,a)=>a.indexOf(v)===k).join(", ")+'</small></span><em title="dias">'+pessoas[n].map(i=>i.data).filter((v,k,a)=>a.indexOf(v)===k).length+'</em></div>').join("")+'</div>';
+  return '<div class="aus-topo"><h2>Ausências de '+mesN+'</h2><p>Só líderes veem esta página. Toque em um culto para abrir os detalhes.</p></div>'+resumo+
+    '<h3 class="aus-sec">Por dia</h3>'+porDia+'<h3 class="aus-sec">Por pessoa</h3>'+porPessoa;
 }
 
 /* ================= Painel ================= */
