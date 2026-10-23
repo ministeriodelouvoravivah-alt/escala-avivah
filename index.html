@@ -562,7 +562,7 @@ const CONFIG = {
   API_URL: "https://script.google.com/macros/s/AKfycbxrhX4edbA7aVQrjiIY4e7g8OeeX_7A9HvKmPRTUlxskJDYWYRQ8M6rKq8xc8HBBHF8/exec",
   NOME: "Ministério Avivah"
 };
-const VERSAO_APP = "2026.10.22-7"; // muda a cada versão enviada; não precisa editar
+const VERSAO_APP = "2026.10.22-8"; // muda a cada versão enviada; não precisa editar
 /* ======================================================== */
 
 const MESES=["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
@@ -669,7 +669,7 @@ function emailBase(titulo,corpo,link,nomeMin){
     '<div style="padding:22px 24px;color:#0f1a3a;font-size:15px;line-height:1.5">'+corpo+
     (link?'<div style="margin:24px 0 0;padding-top:18px;border-top:1px solid #dfe5f1"><a href="'+escH(link)+'" style="display:inline-block;background:#14307f;color:#ffffff;text-decoration:none;font-weight:bold;padding:12px 22px;border-radius:999px">Abrir a escala</a>'+
       '<p style="margin:10px 0 0;font-size:12.5px;color:#59627d">Se o botão não abrir, copie o endereço: <a href="'+escH(link)+'" style="color:#14307f;word-break:break-all">'+escH(link)+'</a></p></div>':'')+
-    '</div></div><p style="text-align:center;color:#59627d;font-size:12px;margin:14px 0 0">Você recebe este e-mail porque faz parte do ministério de louvor.</p></div>';
+    '</div></div><p style="text-align:center;color:#59627d;font-size:13px;margin:14px 0 0">Com carinho, '+escH(nomeMin||"Ministério de louvor")+' 💙</p></div>';
 }
 function linhaEmail(t,s){return '<tr><td style="padding:10px 0;border-top:1px solid #dfe5f1"><div style="font-weight:bold;color:#14307f">'+t+'</div>'+(s?'<div style="color:#59627d;font-size:14px">'+s+'</div>':'')+'</td></tr>';}
 function tabelaEmail(linhas){return '<table role="presentation" style="width:100%;border-collapse:collapse">'+linhas.join("")+'</table>';}
@@ -790,10 +790,10 @@ function emailRespostaPedido(dest,ped,alvo,tipo,aceitou,link,nomeMin,paraLider){
   const sub=String(ped.paraNome).split(/\s+/)[0], de=String(ped.deNome).split(/\s+/)[0];
   if(ped.convidado){
     const c='<p style="margin:0 0 8px">'+(paraLider?'':'Olá, '+escH(String(dest.nome).split(/\s+/)[0])+'! ')+
-      (aceitou?'A liderança aprovou o convidado <strong>'+escH(ped.paraNome)+'</strong> no lugar de <strong>'+escH(ped.deNome)+'</strong>. A escala já foi atualizada.'
-        :'A liderança não aprovou o convidado <strong>'+escH(ped.paraNome)+'</strong> no lugar de <strong>'+escH(ped.deNome)+'</strong>.'+(paraLider?'':' Abra o app e indique outra pessoa.'))+'</p>'+
+      (aceitou?'O convidado <strong>'+escH(ped.paraNome)+'</strong> foi confirmado no lugar de <strong>'+escH(ped.deNome)+'</strong>. A escala já foi atualizada.'
+        :'Desta vez o convidado <strong>'+escH(ped.paraNome)+'</strong> não foi confirmado no lugar de <strong>'+escH(ped.deNome)+'</strong>.'+(paraLider?'':' Abra o app e indique outra pessoa.'))+'</p>'+
       tabelaEmail([linhaEmail(escH(quando)+' — '+escH(tipo==="limpeza"?"Escala de limpeza":alvo.titulo),'Função: <strong>'+escH((ped.funcoes||[]).join(", "))+'</strong>')]);
-    return {assunto:(aceitou?"Convidado aprovado: ":"Convidado não aprovado: ")+ped.paraNome+" no lugar de "+de+" em "+dataBR(alvo.data),html:emailBase(aceitou?"Convidado aprovado":"Convidado não aprovado",c,link,nomeMin)};
+    return {assunto:(aceitou?"Convidado confirmado: ":"Convidado não confirmado: ")+ped.paraNome+" no lugar de "+de+" em "+dataBR(alvo.data),html:emailBase(aceitou?"Convidado confirmado":"Convidado não confirmado",c,link,nomeMin)};
   }
   const corpo='<p style="margin:0 0 8px">'+(paraLider?'':'Olá, '+escH(String(dest.nome).split(/\s+/)[0])+'! ')+
     (aceitou?'<strong>'+escH(ped.paraNome)+'</strong> aceitou substituir <strong>'+escH(ped.deNome)+'</strong>. A escala já foi atualizada.'
@@ -857,7 +857,7 @@ function processar(db,req,env){
     if(m&&tokenDe(m)===t) eu=m;
   }
   const exigirLogin=()=>{if(!eu) throw new Error("Sua sessão expirou. Entre novamente.");};
-  const exigirLider=()=>{exigirLogin(); if(!eu.lider) throw new Error("Apenas líderes podem fazer isso.");};
+  const exigirLider=()=>{exigirLogin(); if(!eu.lider) throw new Error("Essa opção não está disponível para a sua conta.");};
   const acharCulto=id=>{const c=db.cultos.find(x=>x.id===id);if(!c) throw new Error("Culto não encontrado. Atualize a página.");return c;};
 
   switch(req.action){
@@ -952,7 +952,7 @@ function processar(db,req,env){
       db.cultos.forEach(c=>(c.pedidos||[]).forEach(p=>{if(p.id===req.pedidoId){alvo=c;tipo="culto";ped=p;}}));
       db.limpeza.forEach(x=>(x.pedidos||[]).forEach(p=>{if(p.id===req.pedidoId){alvo=x;tipo="limpeza";ped=p;}}));
       if(!ped) throw new Error("Pedido não encontrado. Atualize a página.");
-      if(ped.convidado){ if(!eu.lider) throw new Error("Só um líder pode aprovar a troca por convidado."); }
+      if(ped.convidado){ if(!eu.lider) throw new Error("A confirmação de convidados é feita pelos líderes do ministério."); }
       else if(ped.para!==eu.id) throw new Error("Este pedido de substituição não é para você.");
       if(ped.status!=="pendente") throw new Error(ped.status==="aceito"?"Você já aceitou este pedido.":"Este pedido não está mais valendo.");
       if(alvo.data<env.hoje()) throw new Error("Esse compromisso já passou.");
@@ -1071,7 +1071,7 @@ function processar(db,req,env){
     case "saveRepertorio":{
       exigirLogin();
       const c=acharCulto(req.cultoId);
-      if(!(eu.lider||c.ministroId===eu.id)) throw new Error("Só o ministro escalado neste culto ou um líder pode lançar o repertório.");
+      if(!(eu.lider||c.ministroId===eu.id)) throw new Error("O repertório deste culto é lançado pelo ministro escalado.");
       if(!eu.lider&&!mesPublicado(db,c.data)) throw new Error("A escala deste mês ainda não foi publicada.");
       c.musicas=normalizarMusicas(req.musicas); c.atualizadoEm=new Date().toISOString();
       return {culto:c};
@@ -1079,7 +1079,7 @@ function processar(db,req,env){
     case "saveFeedback":{
       exigirLogin();
       const c=acharCulto(req.cultoId);
-      if(!(eu.lider||c.ministroId===eu.id||escaladoNoFeedback(c,eu.nome))) throw new Error("Só quem está escalado no Feedback deste culto, o ministro ou um líder pode registrar.");
+      if(!(eu.lider||c.ministroId===eu.id||escaladoNoFeedback(c,eu.nome))) throw new Error("O feedback deste culto é registrado por quem está escalado no Feedback ou pelo ministro.");
       if(!eu.lider&&!mesPublicado(db,c.data)) throw new Error("A escala deste mês ainda não foi publicada.");
       const f=req.feedback||{};
       const fb={autor:String(f.autor||"").trim(),bem:String(f.bem||"").trim(),melhorar:String(f.melhorar||"").trim()};
@@ -1384,7 +1384,7 @@ function pedidoDe(obj,deId){return (obj.pedidos||[]).filter(p=>p.de===deId&&p.st
 function tagPedido(obj,m){
   if(!m||obj.data<hojeStr()) return "";
   const p=pedidoDe(obj,m.id); if(!p||p.status==="aceito") return "";
-  if(p.status==="pendente"&&p.convidado) return '<span class="pt-troca pend">'+ICO_TROCA+'convidado '+esc(String(p.paraNome).split(/\s+/)[0])+', aguardando líder</span>';
+  if(p.status==="pendente"&&p.convidado) return '<span class="pt-troca pend">'+ICO_TROCA+'convidado '+esc(String(p.paraNome).split(/\s+/)[0])+', aguardando confirmação</span>';
   return p.status==="pendente"?'<span class="pt-troca pend">'+ICO_TROCA+'aguardando '+esc(String(p.paraNome).split(/\s+/)[0])+' aceitar</span>':'<span class="pt-troca rec">'+ICO_TROCA+'procurando substituto</span>';
 }
 function pedidosParaMim(){
@@ -1433,7 +1433,7 @@ function abrirPedido(pid){
   S.limpeza.forEach(x=>(x.pedidos||[]).forEach(p=>{if(p.id===pid) it={tipo:"limpeza",obj:x,p:p};}));
   if(!it){toast("Pedido não encontrado."); return;}
   if(it.p.convidado){
-    if(!ehLider()){toast("Só um líder pode aprovar convidados."); return;}
+    if(!ehLider()){toast("A confirmação de convidados é feita pelos líderes do ministério."); return;}
     if(it.p.status!=="pendente"){toast("Este pedido já foi respondido."); return;}
     S.aba="agenda"; render();
     abrirSheet('<div class="eyebrow">Substituição por convidado</div><h2 class="sh-title" id="sheetTitulo">Aprovar '+esc(it.p.paraNome)+'?</h2>'+
@@ -1621,7 +1621,7 @@ function viewAgenda(){
     if(it.tipo==="culto"){
       const c=it.c, avisos=[];
       if(!passou&&c.ministroId===eu.id&&preenchidas(c)<5) avisos.push(preenchidas(c)?'Complete o repertório ('+preenchidas(c)+' de 5)':'Falta lançar o repertório');
-      if(passou&&!c.feedback&&estaNaLista((c.funcoes||{}).feedback,eu.nome)) avisos.push('Falta registrar o feedback');
+      if(passou&&!c.feedback&&estaNaLista((c.funcoes||{}).feedback,eu.nome)) avisos.push('Que tal registrar como foi o culto?');
       if(!passou&&indispDe(eu.id,c.data)) avisos.push('Você marcou este dia como indisponível');
       return '<div class="ag-bloco'+(passou?' passado':'')+(recusou(c,eu.id)&&!passou?' recusou':'')+'"><button class="ag-item" data-act="abrir" data-id="'+esc(c.id)+'">'+dia+'<span class="ag-info"><span class="ag-tipo">Culto · '+diaSemana(d)+(c.hora?' · '+esc(c.hora):'')+'</span>'+
         '<span class="ag-t">'+esc(c.titulo)+'</span><span class="papeis">'+it.papeis.map(p=>'<span class="papel'+(p==="Ministro"?' min':'')+'">'+esc(p)+'</span>').join("")+'</span>'+tagTroca(c,eu)+
@@ -1871,9 +1871,9 @@ function botoesPresenca(tipo,id,p){
   if(p&&p.s==="ok") return '<div class="pres-st ok"><span>'+SELO.ok[0]+'Presença confirmada</span><button type="button" class="link-btn" data-act="presenca" data-tipo="'+tipo+'" data-id="'+esc(id)+'" data-r="">Desfazer</button></div>';
   if(p&&p.s==="nao"){
     const obj=tipo==="culto"?S.cultos.find(x=>x.id===id):S.limpeza.find(x=>x.id===id), ped=obj&&S.eu?pedidoDe(obj,S.eu.id):null;
-    if(ped&&ped.status==="pendente") return '<div class="pres-st pend"><span>'+ICO_TROCA+(ped.convidado?'Aguardando a liderança aprovar o convidado '+esc(ped.paraNome)+'.':'Aguardando '+esc(String(ped.paraNome).split(/\s+/)[0])+' aceitar.')+' Você continua na escala até lá.</span><button type="button" class="link-btn" data-act="presenca" data-tipo="'+tipo+'" data-id="'+esc(id)+'" data-r="">Cancelar pedido</button></div>';
-    if(ped&&ped.status==="recusado") return '<div class="pres-st nao col"><span>'+(ped.convidado?'A liderança não aprovou o convidado '+esc(ped.paraNome)+'.':esc(String(ped.paraNome).split(/\s+/)[0])+' não pode substituir.')+' Indique outra pessoa.</span><div class="pres-btns" style="margin-top:8px"><button type="button" class="btn nao-cheio" data-act="presenca" data-tipo="'+tipo+'" data-id="'+esc(id)+'" data-r="nao">Indicar outra pessoa</button><button type="button" class="btn ghost" data-act="presenca" data-tipo="'+tipo+'" data-id="'+esc(id)+'" data-r="ok">Vou conseguir ir</button></div></div>';
-    return '<div class="pres-st nao"><span>Você avisou que não vai. Os líderes já sabem.</span><button type="button" class="link-btn" data-act="presenca" data-tipo="'+tipo+'" data-id="'+esc(id)+'" data-r="">Desfazer</button></div>';
+    if(ped&&ped.status==="pendente") return '<div class="pres-st pend"><span>'+ICO_TROCA+(ped.convidado?'Aguardando a confirmação do convidado '+esc(ped.paraNome)+'.':'Aguardando '+esc(String(ped.paraNome).split(/\s+/)[0])+' aceitar.')+' Você continua na escala até lá.</span><button type="button" class="link-btn" data-act="presenca" data-tipo="'+tipo+'" data-id="'+esc(id)+'" data-r="">Cancelar pedido</button></div>';
+    if(ped&&ped.status==="recusado") return '<div class="pres-st nao col"><span>'+(ped.convidado?'Desta vez o convidado '+esc(ped.paraNome)+' não foi confirmado.':esc(String(ped.paraNome).split(/\s+/)[0])+' não pode substituir.')+' Indique outra pessoa.</span><div class="pres-btns" style="margin-top:8px"><button type="button" class="btn nao-cheio" data-act="presenca" data-tipo="'+tipo+'" data-id="'+esc(id)+'" data-r="nao">Indicar outra pessoa</button><button type="button" class="btn ghost" data-act="presenca" data-tipo="'+tipo+'" data-id="'+esc(id)+'" data-r="ok">Vou conseguir ir</button></div></div>';
+    return '<div class="pres-st nao"><span>Sua ausência foi registrada. Obrigado por avisar!</span><button type="button" class="link-btn" data-act="presenca" data-tipo="'+tipo+'" data-id="'+esc(id)+'" data-r="">Desfazer</button></div>';
   }
   return '<div class="pres-btns"><button type="button" class="btn ok-btn" data-act="presenca" data-tipo="'+tipo+'" data-id="'+esc(id)+'" data-r="ok">Confirmo</button><button type="button" class="btn ghost nao-btn" data-act="presenca" data-tipo="'+tipo+'" data-id="'+esc(id)+'" data-r="nao">Não vou conseguir</button></div>';
 }
@@ -1951,7 +1951,7 @@ function abrirCulto(id){
 function editarRep(id){
   const c=S.cultos.find(x=>x.id===id); if(!c) return;
   comLogin("Entre com sua conta para lançar o repertório.",()=>{
-    if(!podeRep(c)) return semPermissao(c,"Repertório","Só "+esc(nomeMinistro(c.ministroId))+", ministro escalado neste culto, ou um líder pode lançar este repertório.");
+    if(!podeRep(c)) return semPermissao(c,"Repertório","O repertório deste culto é lançado por "+esc(nomeMinistro(c.ministroId))+", ministro escalado. Se precisar de ajuda, fale com um líder do ministério.");
     formRep(c);
   });
 }
@@ -2001,7 +2001,7 @@ async function responder(tipo,id,resposta,motivo,btn){
   try{
     await chamar("responderPresenca",{tipo:tipo,id:id,resposta:resposta,motivo:motivo||""});
     await carregar();
-    toast(resposta==="ok"?"Presença confirmada. Obrigado!":resposta==="nao"?"Os líderes foram avisados":"Resposta desfeita");
+    toast(resposta==="ok"?"Presença confirmada. Obrigado!":resposta==="nao"?"Ausência registrada. Obrigado por avisar!":"Resposta desfeita");
     if(!$("#sheet").hidden){ if(tipo==="culto"&&$("#sheetTitulo")&&!$("#fRecusa")) abrirCulto(id); else fecharSheet(); }
     return true;
   }catch(err){toast(err.message); if(btn) livre(btn); return false;}
@@ -2031,10 +2031,10 @@ function telaRecusa(tipo,id){
     '<form id="fRecusa" class="form" novalidate>'+
     '<label for="recSub">Quem vai te substituir (obrigatório)</label><select id="recSub">'+o.html+'</select>'+
     '<input id="recConvNome" placeholder="Nome do convidado" autocomplete="off" hidden>'+
-    '<p class="hint" id="recConvHint" hidden>Convidados não têm conta no app: um líder aprova a troca.</p>'+
+    '<p class="hint" id="recConvHint" hidden>Como convidados não têm conta no app, os líderes confirmam a troca.</p>'+
     (o.ehMin?'<p class="hint">Como você é o ministro deste culto, só aparecem outros ministros.</p>':'')+
     (o.vazio?'<p class="hint">Não há ninguém disponível para indicar. Fale com um líder.</p>':'')+
-    '<label for="recMotivo">Motivo (obrigatório, só os líderes veem)</label><textarea id="recMotivo" required placeholder="Ex.: vou estar viajando nesse fim de semana."></textarea><p class="err" id="errRecusa"></p>'+
+    '<label for="recMotivo">Motivo (obrigatório, fica entre você e os líderes)</label><textarea id="recMotivo" required placeholder="Ex.: vou estar viajando nesse fim de semana."></textarea><p class="err" id="errRecusa"></p>'+
     '<div class="actions"><button class="btn nao-cheio" type="submit">'+ICO_TROCA_BTN+'Enviar pedido</button><button class="btn ghost" type="button" data-act="fechar">Voltar</button></div></form>');
   $("#recSub").addEventListener("change",()=>{const v=$("#recSub").value; $("#recConvNome").hidden=v!=="c:__novo"; $("#recConvHint").hidden=v.indexOf("c:")!==0; if(v==="c:__novo") $("#recConvNome").focus();});
   $("#fRecusa").onsubmit=async e=>{e.preventDefault();
@@ -2047,7 +2047,7 @@ function telaRecusa(tipo,id){
     try{
       const r=await chamar("responderPresenca",conv?{tipo:tipo,id:id,resposta:"nao",motivo:mot,convidadoNome:conv}:{tipo:tipo,id:id,resposta:"nao",motivo:mot,substitutoId:sub});
       await carregar(); fecharSheet(); render();
-      toast(r.convidado?"Pedido enviado aos líderes para aprovar o convidado "+r.substituto+".":"Pedido enviado para "+String(r.substituto).split(/\s+/)[0]+". Avisaremos quando ela(e) responder.");
+      toast(r.convidado?"Pedido enviado. Avisaremos quando o convidado "+r.substituto+" for confirmado.":"Pedido enviado para "+String(r.substituto).split(/\s+/)[0]+". Avisaremos quando ela(e) responder.");
     }catch(err){$("#errRecusa").textContent=err.message;livre(btn);}
   };
 }
@@ -2073,11 +2073,11 @@ function telaIndisp(){
     $("#calResumo").innerHTML=doMes.length?'Indisponível em '+doMes.map(i=>esc(dataCurta(i.data))).join(", "):'Nenhum dia marcado em '+MESES[vm].toLowerCase()+'.';
   };
   abrirSheet('<div class="eyebrow">Minha conta</div><h2 class="sh-title" id="sheetTitulo">Dias em que não posso servir</h2>'+
-    '<p class="lead">Toque nos dias para marcar. Os líderes veem isso ao montar a escala.</p>'+
+    '<p class="lead">Toque nos dias para marcar. Assim os líderes já sabem na hora de montar a escala.</p>'+
     '<div class="cal-nav"><button type="button" class="icon-btn cal-seta" id="calAnt" aria-label="Mês anterior">‹</button><span class="cal-mes" id="calMes"></span><button type="button" class="icon-btn cal-seta" id="calProx" aria-label="Próximo mês">›</button></div>'+
     '<div class="cal-sem" aria-hidden="true"><span>D</span><span>S</span><span>T</span><span>Q</span><span>Q</span><span>S</span><span>S</span></div><div class="cal-grade" id="calGrade"></div>'+
     '<div class="cal-leg"><span><i class="lg-m"></i>Indisponível</span><span><i class="lg-c"></i>Dia de culto</span></div>'+
-    '<form id="fIndisp" class="form" novalidate><label for="indMotivo">Motivo da ausência (obrigatório, só os líderes veem)</label><input id="indMotivo" placeholder="Ex.: viagem, trabalho, prova" autocomplete="off">'+
+    '<form id="fIndisp" class="form" novalidate><label for="indMotivo">Motivo da ausência (obrigatório, fica entre você e os líderes)</label><input id="indMotivo" placeholder="Ex.: viagem, trabalho, prova" autocomplete="off">'+
     '<p class="nota" id="calResumo"></p><p class="err" id="errIndisp"></p><div class="actions"><button class="btn" type="submit">Salvar</button><button class="btn ghost" type="button" data-act="fechar">Cancelar</button></div></form>');
   desenhar();
   $("#calAnt").onclick=()=>{vm--; if(vm<0){vm=11;va--;} desenhar();};
@@ -2111,14 +2111,14 @@ function secFeedback(c){
       (fb.melhorar?'<div class="fb-b mel"><h4>O que melhorar</h4><p>'+esc(fb.melhorar)+'</p></div>':'')
     :'<p class="nd" style="margin:0">'+(passou?'Ainda não registrado.':'Fica disponível a partir de '+dataCurta(c.data).replace(/^\S+ /,"")+', dia do culto.')+'</p>')+
     (mostraBotao?'<div class="actions"><button class="btn ghost" data-act="editarFeedback" data-id="'+esc(c.id)+'">'+(fb?'Editar feedback':'Registrar feedback')+'</button></div>':'')+
-    (passou&&S.eu&&!podeFb(c)?'<p class="nota">Quem registra o feedback deste culto: '+(quemFb?'<strong>'+esc(quemFb)+'</strong> (escalado no Feedback), ':'')+'o ministro '+esc(nomeMinistro(c.ministroId))+' ou um líder.</p>':'')+'</div>';
+    (passou&&S.eu&&!podeFb(c)?'<p class="nota">O feedback deste culto é registrado '+(quemFb?'por <strong>'+esc(quemFb)+'</strong> (escalado no Feedback) ou ':'')+'pelo ministro '+esc(nomeMinistro(c.ministroId))+'.</p>':'')+'</div>';
 }
 function editarFeedback(id){
   const c=S.cultos.find(x=>x.id===id); if(!c) return;
   comLogin("Entre com sua conta para registrar o feedback.",()=>{
     if(!podeFb(c)){
       const quem=(c.funcoes||{}).feedback;
-      return semPermissao(c,"Feedback do culto","Só "+(quem?"quem está escalado no Feedback ("+esc(quem)+"), ":"")+"o ministro do culto ou um líder pode registrar este feedback.");
+      return semPermissao(c,"Feedback do culto","O feedback deste culto é registrado "+(quem?"por "+esc(quem)+", escalado(a) no Feedback, ou ":"")+"pelo ministro do culto.");
     }
     formFeedback(c);
   });
