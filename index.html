@@ -82,7 +82,7 @@ main{display:flex;flex-direction:column;gap:14px}
 .card:hover{border-color:var(--flame);transform:translateY(-2px)}
 @media (prefers-reduced-motion:reduce){.card{transition:none}.card:hover{transform:none}}
 .card.passado .card-top,.card.passado .card-mid,.card.passado .card-rep,.card.passado .limp-acoes{opacity:.55}
-.card-top{display:flex;align-items:center;gap:8px;padding:14px 14px 0}
+.card-top{display:flex;align-items:center;flex-wrap:wrap;gap:8px;padding:14px 14px 0}
 .tag-data{background:var(--brand);color:var(--brand-ink);font-family:var(--f-display);font-weight:800;font-size:18px;letter-spacing:.02em;padding:3px 14px;font-variant-numeric:tabular-nums}
 .hora{font-family:var(--f-display);font-weight:700;font-size:13px;color:var(--flame)}
 .dress{margin-left:auto;display:flex}
@@ -465,6 +465,8 @@ button.aus-item:hover{background:var(--surface-2)}
 .vago-txt{color:var(--warn);font-weight:600}
 .ag-bloco.pedido.vago{border-color:#f0c98e;background:#fffaf2}
 .aus-tag.v{background:var(--surface-2);color:var(--muted)}
+.min-info .tag-ensaio,.rasc-mid .tag-ensaio{align-self:flex-start;margin-top:6px;width:max-content}
+.rasc-mid .tag-ensaio{display:flex}
 .tag-ensaio{display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:700;color:#1f6aa5;background:var(--sky-soft);padding:2px 8px;border-radius:999px;white-space:nowrap}
 .tag-ensaio svg,.det-ensaio svg,.ag-ensaio svg{width:13px;height:13px;flex:none}
 .det-ensaio{display:inline-flex;align-items:center;gap:6px;margin-top:4px;font-size:13.5px;color:#1f6aa5;background:var(--sky-soft);padding:4px 10px;border-radius:999px}
@@ -578,7 +580,7 @@ const CONFIG = {
   API_URL: "https://script.google.com/macros/s/AKfycbxrhX4edbA7aVQrjiIY4e7g8OeeX_7A9HvKmPRTUlxskJDYWYRQ8M6rKq8xc8HBBHF8/exec",
   NOME: "Ministério Avivah"
 };
-const VERSAO_APP = "2026.10.25-3"; // muda a cada versão enviada; não precisa editar
+const VERSAO_APP = "2026.10.25-4"; // muda a cada versão enviada; não precisa editar
 /* ======================================================== */
 
 const MESES=["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
@@ -1603,9 +1605,9 @@ function tagEnsaio(c){return c.ensaio?'<span class="tag-ensaio" title="Ensaio à
 function cardRascunho(c){
   const d=parseData(c.data);
   return '<button class="card'+(c.data<hojeStr()?' passado':'')+'" data-act="abrir" data-id="'+esc(c.id)+'" aria-label="'+esc(c.titulo+', '+dataCurta(c.data)+', equipe em definição')+'">'+
-    '<span class="card-top"><span class="tag-data">'+pad(d.getDate())+'/'+pad(d.getMonth()+1)+'</span>'+(c.hora?'<span class="hora">'+esc(c.hora)+'</span>':'')+tagEnsaio(c)+dots(c.dresscode)+'</span>'+
+    '<span class="card-top"><span class="tag-data">'+pad(d.getDate())+'/'+pad(d.getMonth()+1)+'</span>'+(c.hora?'<span class="hora">'+esc(c.hora)+'</span>':'')+dots(c.dresscode)+'</span>'+
     '<span class="rasc-mid"><span class="rasc-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.6 3.4-5.5 6.5-5.5s5.7 1.9 6.5 5.5"/><path d="M17 8v6M14 11h6"/></svg></span>'+
-    '<span><strong>'+esc(c.titulo)+'</strong>Equipe em definição</span></span>'+
+    '<span><strong>'+esc(c.titulo)+'</strong>Equipe em definição'+tagEnsaio(c)+'</span></span>'+
     '<span class="card-dia">'+diaSemana(d)+'</span></button>';
 }
 function cardCulto(c){
@@ -1626,10 +1628,10 @@ function cardCulto(c){
     }).join("")+'</span>'
     :(c.equipe?'<span class="equipe-grid"><span class="fr" style="white-space:pre-line;grid-column:1/-1">'+esc(c.equipe)+'</span></span>':'<span class="equipe-grid"><span class="fr nd" style="grid-column:1/-1">Equipe a definir</span></span>');
   return '<button class="card'+(c.data<hojeStr()?' passado':'')+'" data-act="abrir" data-id="'+esc(c.id)+'" aria-label="'+esc(c.titulo+', '+dataCurta(c.data)+', ministro '+nomeMinistro(c.ministroId))+'">'+
-    '<span class="card-top"><span class="tag-data">'+pad(d.getDate())+'/'+pad(d.getMonth()+1)+'</span>'+(c.hora?'<span class="hora">'+esc(c.hora)+'</span>':'')+tagEnsaio(c)+
+    '<span class="card-top"><span class="tag-data">'+pad(d.getDate())+'/'+pad(d.getMonth()+1)+'</span>'+(c.hora?'<span class="hora">'+esc(c.hora)+'</span>':'')+
       (c.rascunhoLider?'<span class="tag-rasc">Rascunho</span>':'')+
       (alertas.length&&futuro?'<span class="badge-alerta">'+ICO_ALERTA+alertas.length+(alertas.length>1?' alertas':' alerta')+'</span>':'')+dots(c.dresscode)+'</span>'+
-    '<span class="min-dest"><span class="av-wrap grande'+(m&&futuro&&recusou(c,m.id)?' recusou':'')+(m&&indispDe(m.id,c.data)?' anel-indisp':'')+'">'+avatar(m)+(futuro?selo(c,m):'')+'</span>'+'<span class="min-info"><span class="min-rot">Ministro</span><span class="min-nm">'+esc(m?m.nome:"A definir")+'</span><span class="min-tit">'+esc(c.titulo)+'</span>'+tagTroca(c,m)+tagPedido(c,m)+'</span></span>'+
+    '<span class="min-dest"><span class="av-wrap grande'+(m&&futuro&&recusou(c,m.id)?' recusou':'')+(m&&indispDe(m.id,c.data)?' anel-indisp':'')+'">'+avatar(m)+(futuro?selo(c,m):'')+'</span>'+'<span class="min-info"><span class="min-rot">Ministro</span><span class="min-nm">'+esc(m?m.nome:"A definir")+'</span><span class="min-tit">'+esc(c.titulo)+'</span>'+tagEnsaio(c)+tagTroca(c,m)+tagPedido(c,m)+'</span></span>'+
     grade+
     avisoCard(c)+
     '<span class="card-rep">'+pill(preenchidas(c))+(c.data<=hojeStr()?fbPill(c):'')+(futuro?pillPresenca(c):'')+'</span>'+
