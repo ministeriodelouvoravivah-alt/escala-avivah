@@ -6,7 +6,12 @@
 <meta name="theme-color" content="#14307f">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="Avivah">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Ministério de Louvor - Avivah">
 <style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px system-ui,sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
 </head>
 <body>
@@ -460,6 +465,11 @@ button.aus-item:hover{background:var(--surface-2)}
 .vago-txt{color:var(--warn);font-weight:600}
 .ag-bloco.pedido.vago{border-color:#f0c98e;background:#fffaf2}
 .aus-tag.v{background:var(--surface-2);color:var(--muted)}
+.tag-ensaio{display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:700;color:#1f6aa5;background:var(--sky-soft);padding:2px 8px;border-radius:999px;white-space:nowrap}
+.tag-ensaio svg,.det-ensaio svg,.ag-ensaio svg{width:13px;height:13px;flex:none}
+.det-ensaio{display:inline-flex;align-items:center;gap:6px;margin-top:4px;font-size:13.5px;color:#1f6aa5;background:var(--sky-soft);padding:4px 10px;border-radius:999px}
+.ag-ensaio{display:inline-flex;align-items:center;gap:5px;font-size:12.5px;font-weight:700;color:#1f6aa5}
+.ens-dica{justify-content:flex-end;padding-bottom:4px}
 .min-list .usr{font-family:var(--f-mono);font-size:12px;color:var(--muted);font-weight:500}
 
 /* Tela de login: a própria escala desfocada ao fundo, cartão à frente */
@@ -568,7 +578,7 @@ const CONFIG = {
   API_URL: "https://script.google.com/macros/s/AKfycbxrhX4edbA7aVQrjiIY4e7g8OeeX_7A9HvKmPRTUlxskJDYWYRQ8M6rKq8xc8HBBHF8/exec",
   NOME: "Ministério Avivah"
 };
-const VERSAO_APP = "2026.10.25-2"; // muda a cada versão enviada; não precisa editar
+const VERSAO_APP = "2026.10.25-3"; // muda a cada versão enviada; não precisa editar
 /* ======================================================== */
 
 const MESES=["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
@@ -634,7 +644,7 @@ const TABELAS_POR_ACAO={deleteConvidado:["Convidados"],responderPedido:["Cultos"
   saveRepertorio:["Cultos"],saveFeedback:["Cultos"],saveLimpeza:["Limpeza"],deleteLimpeza:["Limpeza"],saveEvento:["Eventos"],deleteEvento:["Eventos"]};
 function fotoVersao(f){f=String(f||"");return f?f.length.toString(36)+f.slice(-12):"";}
 function mesPublicado(db,data){const mes=String(data).slice(0,7);return (db.avisos||[]).some(a=>a.mes===mes&&a.publicado);}
-function redigirCulto(c){return {id:c.id,data:c.data,hora:c.hora,titulo:c.titulo,dresscode:c.dresscode||[],rascunho:true,ministroId:"",funcoes:{},musicas:[],presencas:{},feedback:null,obs:"",equipe:""};}
+function redigirCulto(c){return {id:c.id,data:c.data,hora:c.hora,ensaio:c.ensaio||"",titulo:c.titulo,dresscode:c.dresscode||[],rascunho:true,ministroId:"",funcoes:{},musicas:[],presencas:{},feedback:null,obs:"",equipe:""};}
 function redigirLimpeza(x){return {id:x.id,data:x.data,responsaveis:"",presencas:{},rascunho:true};}
 function rascunhosDe(db){
   return {cultos:(db.cultos||[]).filter(c=>!mesPublicado(db,c.data)).map(c=>Object.assign({},c,{presencas:semMotivo(c.presencas)})),
@@ -684,7 +694,7 @@ function emailEscala(db,m,chave,link,nomeMin){
   (db.cultos||[]).filter(c=>String(c.data).startsWith(pref)).sort(porData).forEach(c=>{
     const p=papeisDe(c,m); if(!p.length) return;
     itens.push(linhaEmail(escH(dataBR(c.data))+(c.hora?' · '+escH(c.hora):'')+' — '+escH(c.titulo),
-      'Você: <strong>'+escH(p.join(", "))+'</strong>'+(p.indexOf("Ministro")<0?' · Ministro: '+escH(nomeMinistroDb(db,c.ministroId)):'')));
+      'Você: <strong>'+escH(p.join(", "))+'</strong>'+(p.indexOf("Ministro")<0?' · Ministro: '+escH(nomeMinistroDb(db,c.ministroId)):'')+(c.ensaio?'<br>Ensaio às <strong>'+escH(c.ensaio)+'</strong>':'')));
   });
   (db.limpeza||[]).filter(x=>String(x.data).startsWith(pref)&&nomeNaLista(x.responsaveis,m.nome)).sort(porData).forEach(x=>
     itens.push(linhaEmail(escH(dataBR(x.data))+' — Escala de limpeza','Com '+escH(x.responsaveis))));
@@ -715,7 +725,7 @@ function emailHoje(db,m,hoje,link,nomeMin){
     const p=papeisDe(c,m); if(!p.length||recusou(c,m.id)) return;
     reps.push(c);
     const dc=(c.dresscode||[]).map(h=>NOMES_CORES[h]||"Cor "+String(h).toUpperCase()).join(", ");
-    itens.push(linhaEmail(escH(c.titulo)+(c.hora?' às '+escH(c.hora):''),'Você: <strong>'+escH(p.join(", "))+'</strong>'+(dc?' · Dresscode: '+escH(dc):'')));
+    itens.push(linhaEmail(escH(c.titulo)+(c.hora?' às '+escH(c.hora):''),(c.ensaio?'<span style="display:inline-block;background:#e0f0fb;color:#1f6aa5;font-weight:bold;padding:2px 9px;border-radius:999px;margin:2px 0 4px">Ensaio às '+escH(c.ensaio)+'</span><br>':'')+'Você: <strong>'+escH(p.join(", "))+'</strong>'+(dc?' · Dresscode: '+escH(dc):'')));
     if(c.ministroId===m.id&&qtdMusicas(c)<5) pend.push(c);
   });
   (db.limpeza||[]).filter(x=>x.data===hoje&&mesPublicado(db,x.data)&&nomeNaLista(x.responsaveis,m.nome)&&!recusou(x,m.id)).forEach(x=>itens.push(linhaEmail("Escala de limpeza","Com "+escH(x.responsaveis))));
@@ -1126,7 +1136,9 @@ function processar(db,req,env){
       const id=c.id||uid();
       const i=db.cultos.findIndex(x=>x.id===id);
       const atual=i>=0?db.cultos[i]:{musicas:[],feedback:null};
-      const novo={id:id,data:c.data,hora:String(c.hora||""),titulo:String(c.titulo).trim(),ministroId:String(c.ministroId||""),
+      const ensaio=/^\d{2}:\d{2}$/.test(String(c.ensaio||""))?String(c.ensaio):"";
+      if(ensaio&&c.hora&&ensaio>=String(c.hora)) throw new Error("O ensaio precisa começar antes do horário do culto.");
+      const novo={id:id,data:c.data,hora:String(c.hora||""),ensaio:ensaio,titulo:String(c.titulo).trim(),ministroId:String(c.ministroId||""),
         equipe:"",obs:String(c.obs||"").trim(),funcoes:normalizarFuncoes(c.funcoes),dresscode:normalizarDresscode(c.dresscode),
         musicas:atual.musicas||[],feedback:atual.feedback||null,presencas:atual.presencas||{},atualizadoEm:new Date().toISOString()};
       novo.presencas=podarPresencas(db,novo,"culto");
@@ -1194,7 +1206,7 @@ function hashDemo(t){let h1=0xdeadbeef,h2=0x41c6ce57;for(let i=0;i<t.length;i++)
 const ENVIOS_DEMO=[];
 const ENV_DEMO={hash:t=>hashDemo("demo-avivah|"+t),enviar:(para,assunto)=>{ENVIOS_DEMO.push({para:para,assunto:assunto});},
   hoje:()=>hojeStr(),link:()=>String(location.href).split("#")[0].split("?")[0],nomeMin:"Ministério Avivah"};
-const DEMO_KEY="louvor_demo_v14";
+const DEMO_KEY="louvor_demo_v15";
 let demoMem=null;
 function seed(){
   const now=new Date(), y=now.getFullYear(), m=now.getMonth();
@@ -1233,7 +1245,7 @@ function seed(){
     const dow=dt.getDay(); if(dow!==0&&dow!==2) continue;
     const e=escala[k];
     cultos.push({id:"c"+d,data:y+"-"+pad(m+1)+"-"+pad(d),hora:dow===0?"18:00":"19:30",titulo:dow===0?"Culto de Domingo":"Culto de Terça",
-      ministroId:e[0],equipe:"",obs:k===0?"Ensaio no sábado às 16h.":"",funcoes:e[1],dresscode:e[2],musicas:reps[k]||[vz(),vz(),vz(),vz(),vz()],feedback:null});
+      ministroId:e[0],equipe:"",obs:"",ensaio:dow===0?"16:30":"18:30",funcoes:e[1],dresscode:e[2],musicas:reps[k]||[vz(),vz(),vz(),vz(),vz()],feedback:null});
     k++;
   }
   if(cultos[0]) cultos[0].feedback={autor:"Pablo",bem:"Abertura bem ensaiada e backing muito afinado em Lugar Secreto.\nTransição para a ministração da Palavra foi tranquila.",melhorar:"Retorno do teclado estava baixo no início.\nCombinar antes a passagem para a música da oferta.",em:new Date(y,m,Number(cultos[0].data.slice(8)),21,30).toISOString()};
@@ -1586,10 +1598,12 @@ function avisoMesLider(lista){
   const partes=[]; if(comAlerta) partes.push(comAlerta+(comAlerta>1?' cultos com alertas':' culto com alertas')); if(recusas) partes.push(recusas+(recusas>1?' pessoas avisaram que não vão':' pessoa avisou que não vai'));
   return '<div class="alerta-mes">'+ICO_ALERTA+'<span><strong>'+MESES[S.mes]+': '+partes.join(" · ")+'.</strong> Abra o culto para ver os detalhes. Só líderes veem este aviso.</span></div>';
 }
+const ICO_ENSAIO='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18V5l11-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/></svg>';
+function tagEnsaio(c){return c.ensaio?'<span class="tag-ensaio" title="Ensaio às '+esc(c.ensaio)+'">'+ICO_ENSAIO+'Ensaio '+esc(c.ensaio)+'</span>':'';}
 function cardRascunho(c){
   const d=parseData(c.data);
   return '<button class="card'+(c.data<hojeStr()?' passado':'')+'" data-act="abrir" data-id="'+esc(c.id)+'" aria-label="'+esc(c.titulo+', '+dataCurta(c.data)+', equipe em definição')+'">'+
-    '<span class="card-top"><span class="tag-data">'+pad(d.getDate())+'/'+pad(d.getMonth()+1)+'</span>'+(c.hora?'<span class="hora">'+esc(c.hora)+'</span>':'')+dots(c.dresscode)+'</span>'+
+    '<span class="card-top"><span class="tag-data">'+pad(d.getDate())+'/'+pad(d.getMonth()+1)+'</span>'+(c.hora?'<span class="hora">'+esc(c.hora)+'</span>':'')+tagEnsaio(c)+dots(c.dresscode)+'</span>'+
     '<span class="rasc-mid"><span class="rasc-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.6 3.4-5.5 6.5-5.5s5.7 1.9 6.5 5.5"/><path d="M17 8v6M14 11h6"/></svg></span>'+
     '<span><strong>'+esc(c.titulo)+'</strong>Equipe em definição</span></span>'+
     '<span class="card-dia">'+diaSemana(d)+'</span></button>';
@@ -1612,7 +1626,7 @@ function cardCulto(c){
     }).join("")+'</span>'
     :(c.equipe?'<span class="equipe-grid"><span class="fr" style="white-space:pre-line;grid-column:1/-1">'+esc(c.equipe)+'</span></span>':'<span class="equipe-grid"><span class="fr nd" style="grid-column:1/-1">Equipe a definir</span></span>');
   return '<button class="card'+(c.data<hojeStr()?' passado':'')+'" data-act="abrir" data-id="'+esc(c.id)+'" aria-label="'+esc(c.titulo+', '+dataCurta(c.data)+', ministro '+nomeMinistro(c.ministroId))+'">'+
-    '<span class="card-top"><span class="tag-data">'+pad(d.getDate())+'/'+pad(d.getMonth()+1)+'</span>'+(c.hora?'<span class="hora">'+esc(c.hora)+'</span>':'')+
+    '<span class="card-top"><span class="tag-data">'+pad(d.getDate())+'/'+pad(d.getMonth()+1)+'</span>'+(c.hora?'<span class="hora">'+esc(c.hora)+'</span>':'')+tagEnsaio(c)+
       (c.rascunhoLider?'<span class="tag-rasc">Rascunho</span>':'')+
       (alertas.length&&futuro?'<span class="badge-alerta">'+ICO_ALERTA+alertas.length+(alertas.length>1?' alertas':' alerta')+'</span>':'')+dots(c.dresscode)+'</span>'+
     '<span class="min-dest"><span class="av-wrap grande'+(m&&futuro&&recusou(c,m.id)?' recusou':'')+(m&&indispDe(m.id,c.data)?' anel-indisp':'')+'">'+avatar(m)+(futuro?selo(c,m):'')+'</span>'+'<span class="min-info"><span class="min-rot">Ministro</span><span class="min-nm">'+esc(m?m.nome:"A definir")+'</span><span class="min-tit">'+esc(c.titulo)+'</span>'+tagTroca(c,m)+tagPedido(c,m)+'</span></span>'+
@@ -1712,7 +1726,7 @@ function viewAgenda(){
       if(!passou&&c.ministroId===eu.id&&preenchidas(c)<5) avisos.push(preenchidas(c)?'Complete o repertório ('+preenchidas(c)+' de 5)':'Falta lançar o repertório');
       if(passou&&!c.feedback&&estaNaLista((c.funcoes||{}).feedback,eu.nome)) avisos.push('Que tal registrar como foi o culto?');
       if(!passou&&indispDe(eu.id,c.data)) avisos.push('Você marcou este dia como indisponível');
-      return '<div class="ag-bloco'+(passou?' passado':'')+(recusou(c,eu.id)&&!passou?' recusou':'')+'"><button class="ag-item" data-act="abrir" data-id="'+esc(c.id)+'">'+dia+'<span class="ag-info"><span class="ag-tipo">Culto · '+diaSemana(d)+(c.hora?' · '+esc(c.hora):'')+'</span>'+
+      return '<div class="ag-bloco'+(passou?' passado':'')+(recusou(c,eu.id)&&!passou?' recusou':'')+'"><button class="ag-item" data-act="abrir" data-id="'+esc(c.id)+'">'+dia+'<span class="ag-info"><span class="ag-tipo">Culto · '+diaSemana(d)+(c.hora?' · '+esc(c.hora):'')+'</span>'+(c.ensaio?'<span class="ag-ensaio">'+ICO_ENSAIO+'Ensaio às '+esc(c.ensaio)+'</span>':'')+
         '<span class="ag-t">'+esc(c.titulo)+'</span><span class="papeis">'+it.papeis.map(p=>'<span class="papel'+(p==="Ministro"?' min':'')+'">'+esc(p)+'</span>').join("")+'</span>'+tagTroca(c,eu)+
         (c.ministroId!==eu.id?'<span class="ag-meta">Ministro: '+esc(nomeMinistro(c.ministroId))+'</span>':'')+
         avisos.map(a=>'<span class="ag-acao">'+a+'</span>').join("")+'</span></button>'+(passou?'':botoesPresenca("culto",c.id,presencaDe(c,eu.id)))+'</div>';
@@ -1949,7 +1963,7 @@ function telaConta(){
 function abrirRascunho(c){
   const d=parseData(c.data), dc=normalizarDresscode(c.dresscode);
   abrirSheet('<div class="eyebrow">'+SEM_L[d.getDay()]+', '+d.getDate()+' de '+MESES[d.getMonth()].toLowerCase()+(c.hora?' · '+esc(c.hora):'')+'</div>'+
-    '<h2 class="sh-title" id="sheetTitulo">'+esc(c.titulo)+'</h2>'+
+    '<h2 class="sh-title" id="sheetTitulo">'+esc(c.titulo)+'</h2>'+(c.ensaio?'<div class="det-ensaio" style="margin-bottom:10px">'+ICO_ENSAIO+'Ensaio às <strong>'+esc(c.ensaio)+'</strong>, na igreja</div>':'')+
     '<p class="nota" style="margin-top:0">A equipe deste culto ainda está sendo definida. Assim que a escala do mês for publicada, ela aparece aqui.</p>'+
     ((dc.length||podeDresscode())?'<div class="sec"><div class="sec-h"><h3>Dresscode</h3>'+(podeDresscode()?'<button type="button" class="btn ghost sm" data-act="dresscode" data-id="'+esc(c.id)+'">'+(dc.length?'Editar':'Definir')+'</button>':'')+'</div>'+
       (dc.length?'<div class="dc-list">'+dc.map(h=>'<span class="dc-item"><span class="dot" style="background:'+h+'"></span>'+esc(nomeCor(h))+'</span>').join("")+'</div>':'<p class="nd" style="margin:0">Ainda sem dresscode.</p>')+'</div>':''));
@@ -2028,6 +2042,7 @@ function abrirCulto(id){
   abrirSheet(
     secAlertas(c)+
     '<div class="det-head">'+avatar(m)+'<div><div class="eyebrow">'+SEM_L[d.getDay()]+', '+d.getDate()+' de '+MESES[d.getMonth()].toLowerCase()+(c.hora?' · '+esc(c.hora):'')+'</div>'+
+      (c.ensaio?'<div class="det-ensaio">'+ICO_ENSAIO+'Ensaio às <strong>'+esc(c.ensaio)+'</strong>, na igreja</div>':'')+
       '<h2 class="sh-title" id="sheetTitulo">'+esc(c.titulo)+'</h2><div class="cm">Ministro: <strong>'+esc(nomeMinistro(c.ministroId))+'</strong></div></div></div>'+
     ((dc.length||podeDresscode())?'<div class="sec"><div class="sec-h"><h3>Dresscode</h3>'+(podeDresscode()?'<button type="button" class="btn ghost sm" data-act="dresscode" data-id="'+esc(c.id)+'">'+(dc.length?'Editar':'Definir')+'</button>':'')+'</div>'+
       (dc.length?'<div class="dc-list">'+dc.map(h=>'<span class="dc-item"><span class="dot" style="background:'+h+'"></span>'+esc(nomeCor(h))+'</span>').join("")+'</div>':'<p class="nd" style="margin:0">Ainda sem dresscode.</p>')+'</div>':'')+
@@ -2281,7 +2296,8 @@ function formCulto(c){
   const opts='<option value="">A definir</option>'+ministros.map(m=>'<option value="'+esc(m.id)+'"'+(m.id===c.ministroId?' selected':'')+'>'+esc(m.nome)+'</option>').join("");
   abrirSheet('<div class="eyebrow">Escala</div><h2 class="sh-title" id="sheetTitulo">'+(novo?'Novo culto':'Editar culto')+'</h2>'+
     '<form id="fCulto" class="form">'+
-    '<div class="row2" style="grid-template-columns:1fr 1fr"><div><label for="cData">Data</label><input id="cData" type="date" value="'+esc(c.data)+'" required></div><div><label for="cHora">Horário</label><input id="cHora" type="time" value="'+esc(c.hora)+'"></div></div>'+
+    '<div class="row2" style="grid-template-columns:1fr 1fr"><div><label for="cData">Data</label><input id="cData" type="date" value="'+esc(c.data)+'" required></div><div><label for="cHora">Horário do culto</label><input id="cHora" type="time" value="'+esc(c.hora)+'"></div></div>'+
+    '<div class="row2" style="grid-template-columns:1fr 1fr"><div><label for="cEnsaio">Horário do ensaio</label><input id="cEnsaio" type="time" value="'+esc(c.ensaio||"")+'"></div><div class="ens-dica"><span class="hint">No mesmo dia, na igreja. Deixe em branco se não houver.</span></div></div>'+
     '<label for="cTitulo">Culto</label><input id="cTitulo" list="titulos" value="'+esc(c.titulo)+'" placeholder="Ex.: Culto de Domingo" required>'+
     '<label for="cMin">Ministro (cantor)</label><select id="cMin">'+opts+'</select>'+
     (ministros.length?'':'<p class="hint">Marque quem é ministro em “Membros” para escolher aqui.</p>')+
@@ -2291,7 +2307,7 @@ function formCulto(c){
     '<fieldset class="bloco"><legend>Dresscode</legend><p class="hint" style="margin-top:4px">Paleta de roupas do culto. Toque em quantas cores quiser (até 6), na ordem que preferir. Toque de novo para tirar.</p>'+
       '<p class="hint" id="dcCont" style="font-weight:700;color:var(--brand)"></p><div class="dc-sel" id="dcSel"></div><div class="dc-presets" id="dcPresets"></div>'+
       '<label class="dc-outra" for="dcCustom"><input type="color" id="dcCustom" value="#1b2f6b">Adicionar outra cor</label></fieldset>'+
-    '<label for="cObs">Avisos</label><textarea id="cObs" placeholder="Ex.: Ensaio no sábado às 16h.">'+esc(c.obs)+'</textarea>'+
+    '<label for="cObs">Avisos</label><textarea id="cObs" placeholder="Ex.: Chegar 15 minutos antes para passagem de som.">'+esc(c.obs)+'</textarea>'+
     '<p class="err" id="errCulto"></p><div class="actions"><button class="btn" type="submit">'+(novo?'Lançar culto':'Salvar alterações')+'</button>'+
     (novo?'':'<button class="btn ghost" type="button" data-act="abrir" data-id="'+esc(c.id)+'">Cancelar</button>')+'</div></form>');
   const pintarDc=()=>{
@@ -2328,7 +2344,7 @@ function formCulto(c){
     funcoes.backing=[valorCampo("f_backing0"),valorCampo("f_backing1")].filter(v=>v&&!/^[-–—]+$/.test(v)).join(", ");
     const novosConv=[...document.querySelectorAll("#fCulto select")].filter(sl=>sl.value==="__novo").map(sl=>valorCampo(sl.id));
     if(novosConv.some(n=>n.length<2)){$("#errCulto").textContent="Digite o nome do convidado.";return;}
-    const dados={convidadosNovos:novosConv.filter((v,i,a)=>a.indexOf(v)===i),id:c.id||"",data:$("#cData").value,hora:$("#cHora").value,titulo:$("#cTitulo").value,ministroId:$("#cMin").value,funcoes:funcoes,dresscode:dc,obs:$("#cObs").value};
+    const dados={convidadosNovos:novosConv.filter((v,i,a)=>a.indexOf(v)===i),id:c.id||"",data:$("#cData").value,hora:$("#cHora").value,ensaio:$("#cEnsaio").value,titulo:$("#cTitulo").value,ministroId:$("#cMin").value,funcoes:funcoes,dresscode:dc,obs:$("#cObs").value};
     ocupado(btn,"Salvando…");
     try{
       const r=await chamar("saveCulto",{culto:dados});
@@ -2485,7 +2501,7 @@ async function telaMembros(editId){
 /* ================= Copiar para WhatsApp ================= */
 function textoCulto(c){
   const d=parseData(c.data), f=c.funcoes||{}, dc=normalizarDresscode(c.dresscode);
-  const linhas=["*"+c.titulo+"* — "+pad(d.getDate())+"/"+pad(d.getMonth()+1)+" ("+diaSemana(d)+")"+(c.hora?" · "+c.hora:""),"Ministro: "+nomeMinistro(c.ministroId)];
+  const linhas=["*"+c.titulo+"* — "+pad(d.getDate())+"/"+pad(d.getMonth()+1)+" ("+diaSemana(d)+")"+(c.hora?" · "+c.hora:"")].concat(c.ensaio?["Ensaio às "+c.ensaio]:[]).concat(["Ministro: "+nomeMinistro(c.ministroId)]);
   if(dc.length) linhas.push("Dresscode: "+dc.map(nomeCor).join(", "));
   const eq=FUNCOES.filter(x=>f[x[0]]).map(x=>x[1]+": "+f[x[0]]).concat((c.vagas||[]).map(v=>v.funcao+": sem músico neste culto"));
   if(eq.length) linhas.push("",...eq);
