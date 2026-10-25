@@ -454,6 +454,12 @@ button.aus-item:hover{background:var(--surface-2)}
 .pt-conv{display:inline-block;align-self:flex-start;font-style:normal;font-family:var(--f-display);font-weight:800;font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;background:#efe6fb;color:#5b2d9a;padding:1px 7px;border-radius:999px;margin-top:2px}
 .nv-conv{margin-top:6px}
 .ag-bloco.pedido.conv{border-color:#cdb6ee;background:#f8f4fd}
+.pessoa-t.vaga .pt-nome{color:var(--muted)}
+.av-vago{background:var(--surface-2)!important;color:var(--muted)!important;border:2px dashed #b9c2d6;box-sizing:border-box}
+.pt-vago{font-size:11px;font-weight:700;color:var(--warn)}
+.vago-txt{color:var(--warn);font-weight:600}
+.ag-bloco.pedido.vago{border-color:#f0c98e;background:#fffaf2}
+.aus-tag.v{background:var(--surface-2);color:var(--muted)}
 .min-list .usr{font-family:var(--f-mono);font-size:12px;color:var(--muted);font-weight:500}
 
 /* Tela de login: a própria escala desfocada ao fundo, cartão à frente */
@@ -559,10 +565,10 @@ button.aus-item:hover{background:var(--surface-2)}
 const CONFIG = {
   // Cole aqui a URL do App da Web do Google Apps Script (termina em /exec).
   // Vazio = modo demonstração (dados só no aparelho).
-  API_URL: "https://script.google.com/macros/s/AKfycbxrhX4edbA7aVQrjiIY4e7g8OeeX_7A9HvKmPRTUlxskJDYWYRQ8M6rKq8xc8HBBHF8/exec",
+  API_URL: "",
   NOME: "Ministério Avivah"
 };
-const VERSAO_APP = "2026.10.22-8"; // muda a cada versão enviada; não precisa editar
+const VERSAO_APP = "2026.10.25-2"; // muda a cada versão enviada; não precisa editar
 /* ======================================================== */
 
 const MESES=["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
@@ -641,7 +647,7 @@ function usuarioDoToken(db,token,env){
 }
 function dadosPublicos(db){
   return {membros:(db.membros||[]).map(m=>({id:m.id,nome:m.nome,ministro:!!m.ministro,lider:!!m.lider,cantor:!!m.cantor,musico:!!m.musico,fotoV:fotoVersao(m.foto)})),
-    cultos:(db.cultos||[]).map(c=>mesPublicado(db,c.data)?Object.assign({},c,{presencas:semMotivo(c.presencas),substituicoes:subsPublicas(c.substituicoes),pedidos:pedidosPublicos(c.pedidos)}):redigirCulto(c)),
+    cultos:(db.cultos||[]).map(c=>mesPublicado(db,c.data)?Object.assign({},c,{presencas:semMotivo(c.presencas),substituicoes:subsPublicas(c.substituicoes),pedidos:pedidosPublicos(c.pedidos),vagas:(c.vagas||[]).map(v=>({funcao:v.funcao,deNome:v.deNome,em:v.em}))}):redigirCulto(c)),
     limpeza:(db.limpeza||[]).map(x=>mesPublicado(db,x.data)?Object.assign({},x,{presencas:semMotivo(x.presencas),substituicoes:subsPublicas(x.substituicoes),pedidos:pedidosPublicos(x.pedidos)}):redigirLimpeza(x)),
     eventos:db.eventos||[],convidados:(db.convidados||[]).map(c=>({id:c.id,nome:c.nome})),avisos:(db.avisos||[]).map(a=>({mes:a.mes,enviadoEm:a.enviadoEm,enviadoPor:a.enviadoPor,publicado:!!a.publicado}))};
 }
@@ -692,10 +698,22 @@ function emailEscala(db,m,chave,link,nomeMin){
     tabelaEmail(evs.map(e=>linhaEmail(escH(dataBR(e.data))+(e.hora?' · '+escH(e.hora):'')+' — '+escH(e.titulo),escH(e.local||""))));
   return {assunto:"Escala de "+mesNome+" pronta",html:emailBase("Escala de "+mesNome,corpo,link,nomeMin)};
 }
+function repertorioEmail(c,comTitulo){
+  const ms=c.musicas||[];
+  const linhas=[0,1,2,3,4].map(i=>{
+    const mu=ms[i]||{}, rot=i===4?"Oferta":(i+1)+". "+MOMENTOS[i];
+    if(!mu.titulo) return '<tr><td style="padding:8px 0;border-top:1px solid #dfe5f1;color:#9aa3bb;font-size:14px"><span style="font-size:11px;font-weight:bold;letter-spacing:1px;color:#d9161f">'+escH(rot.toUpperCase())+'</span><br>A definir</td></tr>';
+    return '<tr><td style="padding:8px 0;border-top:1px solid #dfe5f1"><span style="font-size:11px;font-weight:bold;letter-spacing:1px;color:#d9161f">'+escH(rot.toUpperCase())+'</span><br>'+
+      '<strong style="color:#14307f">'+escH(mu.titulo)+'</strong>'+(mu.artista?' <span style="color:#59627d">· '+escH(mu.artista)+'</span>':'')+(mu.tom?' <span style="color:#2f86c9;font-weight:bold">· Tom '+escH(mu.tom)+'</span>':'')+
+      (mu.link?'<br><a href="'+escH(mu.link)+'" style="color:#d9161f;font-weight:bold;text-decoration:none">▶ Ouvir no YouTube</a>':'')+'</td></tr>';
+  }).join("");
+  return '<p style="margin:20px 0 4px;font-weight:bold;color:#14307f">Repertório'+(comTitulo?' · '+escH(c.titulo):'')+'</p><table role="presentation" style="width:100%;border-collapse:collapse">'+linhas+'</table>';
+}
 function emailHoje(db,m,hoje,link,nomeMin){
-  const itens=[], pend=[];
+  const itens=[], pend=[], reps=[];
   (db.cultos||[]).filter(c=>c.data===hoje&&mesPublicado(db,c.data)).sort(porData).forEach(c=>{
     const p=papeisDe(c,m); if(!p.length||recusou(c,m.id)) return;
+    reps.push(c);
     const dc=(c.dresscode||[]).map(h=>NOMES_CORES[h]||"Cor "+String(h).toUpperCase()).join(", ");
     itens.push(linhaEmail(escH(c.titulo)+(c.hora?' às '+escH(c.hora):''),'Você: <strong>'+escH(p.join(", "))+'</strong>'+(dc?' · Dresscode: '+escH(dc):'')));
     if(c.ministroId===m.id&&qtdMusicas(c)<5) pend.push(c);
@@ -703,6 +721,7 @@ function emailHoje(db,m,hoje,link,nomeMin){
   (db.limpeza||[]).filter(x=>x.data===hoje&&mesPublicado(db,x.data)&&nomeNaLista(x.responsaveis,m.nome)&&!recusou(x,m.id)).forEach(x=>itens.push(linhaEmail("Escala de limpeza","Com "+escH(x.responsaveis))));
   if(!itens.length) return null;
   let corpo='<p style="margin:0 0 6px">Olá, '+escH(String(m.nome).split(/\s+/)[0])+'! Hoje é dia de servir. Confira:</p>'+tabelaEmail(itens);
+  reps.forEach(c=>{corpo+=repertorioEmail(c,reps.length>1);});
   pend.forEach(c=>{corpo+='<p style="margin:16px 0 0;background:#fbecd6;color:#7a4300;padding:12px 14px;border-radius:10px">O repertório de <strong>'+escH(c.titulo)+'</strong> está com '+qtdMusicas(c)+' de 5 músicas. Complete no app antes do culto.</p>';});
   return {assunto:"Hoje você serve no louvor",html:emailBase("Você está na escala de hoje",corpo,link,nomeMin)};
 }
@@ -732,7 +751,7 @@ function trocarNome(txt,de,para){
   const n=norm(de), p=n.split(/\s+/)[0];
   return String(txt||"").split(/\s*,\s*|\s+e\s+/).filter(Boolean).map(x=>{const k=norm(x);return (k===n||k===p)?para:x;}).join(", ");
 }
-function pedidosPublicos(l){return (Array.isArray(l)?l:[]).map(x=>({id:x.id,de:x.de,deNome:x.deNome,para:x.para,paraNome:x.paraNome,convidado:!!x.convidado,funcoes:x.funcoes||[],status:x.status,em:x.em}));}
+function pedidosPublicos(l){return (Array.isArray(l)?l:[]).map(x=>({id:x.id,de:x.de,deNome:x.deNome,para:x.para,paraNome:x.paraNome,convidado:!!x.convidado,vago:!!x.vago,funcoes:x.funcoes||[],status:x.status,em:x.em}));}
 function pedidoPendente(alvo,deId){return (alvo.pedidos||[]).filter(p=>p.de===deId&&p.status==="pendente").slice(-1)[0]||null;}
 function cancelarPedidos(alvo,deId){(alvo.pedidos||[]).forEach(p=>{if(p.de===deId&&p.status==="pendente"){p.status="cancelado";p.respondidoEm=new Date().toISOString();}});}
 function validarSubstituto(db,alvo,tipo,de,sub){
@@ -742,6 +761,26 @@ function validarSubstituto(db,alvo,tipo,de,sub){
   if(jaEsc) throw new Error(sub.nome+" já está escalado(a) neste "+(tipo==="culto"?"culto":"dia")+". Escolha outra pessoa.");
   if((sub.indisp||[]).some(i=>i.data===alvo.data)) throw new Error(sub.nome+" marcou que não pode servir neste dia. Escolha outra pessoa.");
   if(tipo==="culto"&&alvo.ministroId===de.id&&!sub.ministro) throw new Error("Quem sai é o ministro do culto: o substituto precisa ser outro ministro.");
+}
+function removerNome(txt,nome){const n=norm(nome),p=n.split(/\s+/)[0];return String(txt||"").split(/\s*,\s*|\s+e\s+/).filter(Boolean).filter(x=>{const k=norm(x);return k!==n&&k!==p;}).join(", ");}
+function emailPedidoVago(de,alvo,funcao,motivo,link,pid,nomeMin){
+  const quando=dataBR(alvo.data)+(alvo.hora?' · '+alvo.hora:'');
+  const url=link?link+(link.indexOf("?")>=0?"&":"?")+"pedido="+encodeURIComponent(pid):"";
+  const corpo='<p style="margin:0 0 8px"><strong>'+escH(de.nome)+'</strong> não vai conseguir servir e não encontrou músico substituto.</p>'+
+    tabelaEmail([linhaEmail(escH(quando)+' — '+escH(alvo.titulo),'Função: <strong>'+escH(funcao)+'</strong>')])+
+    (motivo?'<p style="margin:10px 0 0;color:#59627d">Motivo: '+escH(motivo)+'</p>':'')+
+    '<p style="margin:14px 0 0">No app, escolha entre <strong>seguir sem '+escH(funcao.toLowerCase())+'</strong> neste culto ou escalar outra pessoa.</p>'+
+    (url?'<p style="margin:16px 0 4px"><a href="'+escH(url)+'" style="display:inline-block;background:#25784a;color:#ffffff;text-decoration:none;font-weight:bold;padding:12px 22px;border-radius:999px">Decidir no app</a></p>':'');
+  return {assunto:"Sem músico substituto: "+funcao+" em "+dataBR(alvo.data),html:emailBase("Sem músico substituto",corpo,link,nomeMin)};
+}
+function emailVagoDecidido(dest,alvo,funcao,deNome,link,nomeMin,papel){
+  const quando=dataBR(alvo.data)+(alvo.hora?' · '+alvo.hora:'');
+  const ola=dest?'Olá, '+escH(String(dest.nome).split(/\s+/)[0])+'! ':'';
+  const txt=papel==="de"?ola+'Combinado: o culto vai seguir sem <strong>'+escH(funcao.toLowerCase())+'</strong> e você está liberado(a). Obrigado por avisar!'
+    :papel==="min"?ola+'O culto em que você é ministro vai seguir <strong>sem '+escH(funcao.toLowerCase())+'</strong> ('+escH(deNome)+' não poderá ir). Vale ajustar o repertório ou os arranjos.'
+    :'O culto vai seguir <strong>sem '+escH(funcao.toLowerCase())+'</strong> ('+escH(deNome)+' não poderá ir).';
+  const corpo='<p style="margin:0 0 8px">'+txt+'</p>'+tabelaEmail([linhaEmail(escH(quando)+' — '+escH(alvo.titulo),'Sem músico: <strong>'+escH(funcao)+'</strong>')]);
+  return {assunto:"Culto de "+dataBR(alvo.data)+" segue sem "+funcao.toLowerCase(),html:emailBase("Culto sem "+funcao.toLowerCase(),corpo,link,nomeMin)};
 }
 function nomeConvidadoValido(db,nome){
   nome=String(nome||"").replace(/\s+/g," ").trim().slice(0,60);
@@ -922,6 +961,19 @@ function processar(db,req,env){
       if(r==="ok"){alvo.presencas[eu.id]={s:"ok",motivo:"",em:new Date().toISOString()}; cancelarPedidos(alvo,eu.id); return {};}
       const motivo=String(req.motivo||"").trim().slice(0,200);
       if(motivo.length<3) throw new Error("Nos conte o motivo da ausência, é importante.");
+      if(req.semSubstituto){
+        if(tipo!=="culto") throw new Error("Na limpeza, indique alguém para te substituir.");
+        if(alvo.ministroId===eu.id) throw new Error("O ministro precisa indicar outro ministro da equipe.");
+        const inst=funcoes.filter(f=>INSTRUMENTOS.indexOf(f)>=0);
+        if(!inst.length) throw new Error("Essa opção é só para quem toca um instrumento neste culto. Indique alguém para te substituir.");
+        cancelarPedidos(alvo,eu.id);
+        alvo.presencas[eu.id]={s:"nao",motivo:motivo,em:new Date().toISOString()};
+        const pv={id:uid(),de:eu.id,deNome:eu.nome,para:"",paraNome:"",vago:true,funcoes:funcoes,motivo:motivo,status:"pendente",em:new Date().toISOString(),respondidoEm:""};
+        alvo.pedidos=(alvo.pedidos||[]).concat([pv]);
+        const ev=emailPedidoVago(eu,alvo,inst.join(", "),motivo,env.link(),pv.id,env.nomeMin);
+        db.membros.filter(m=>m.lider&&m.email&&m.id!==eu.id).forEach(m=>{try{env.enviar(m.email,ev.assunto,ev.html);}catch(x){}});
+        return {semSubstituto:true,pendente:true};
+      }
       if(req.convidadoNome){
         if(tipo!=="culto") throw new Error("Convidados de fora só podem substituir nos cultos.");
         if(alvo.ministroId===eu.id) throw new Error("O ministro só pode ser substituído por outro ministro da equipe.");
@@ -952,7 +1004,7 @@ function processar(db,req,env){
       db.cultos.forEach(c=>(c.pedidos||[]).forEach(p=>{if(p.id===req.pedidoId){alvo=c;tipo="culto";ped=p;}}));
       db.limpeza.forEach(x=>(x.pedidos||[]).forEach(p=>{if(p.id===req.pedidoId){alvo=x;tipo="limpeza";ped=p;}}));
       if(!ped) throw new Error("Pedido não encontrado. Atualize a página.");
-      if(ped.convidado){ if(!eu.lider) throw new Error("A confirmação de convidados é feita pelos líderes do ministério."); }
+      if(ped.convidado||ped.vago){ if(!eu.lider) throw new Error(ped.vago?"Essa decisão é tomada pelos líderes do ministério.":"A confirmação de convidados é feita pelos líderes do ministério."); }
       else if(ped.para!==eu.id) throw new Error("Este pedido de substituição não é para você.");
       if(ped.status!=="pendente") throw new Error(ped.status==="aceito"?"Você já aceitou este pedido.":"Este pedido não está mais valendo.");
       if(alvo.data<env.hoje()) throw new Error("Esse compromisso já passou.");
@@ -960,6 +1012,23 @@ function processar(db,req,env){
       const deAinda=de&&(tipo==="culto"?papeisDe(alvo,de).length>0:nomeNaLista(alvo.responsaveis,de.nome));
       if(!deAinda){ped.status="cancelado"; ped.respondidoEm=new Date().toISOString(); throw new Error("A escala mudou e este pedido não vale mais.");}
       const aceitar=!!req.aceitar;
+      if(ped.vago){
+        if(!aceitar) throw new Error("Para escalar outra pessoa, edite o culto.");
+        const f=alvo.funcoes||{}, sairam=[];
+        FUNCOES.forEach(x=>{if(nomeNaLista(f[x[0]],de.nome)){f[x[0]]=removerNome(f[x[0]],de.nome); sairam.push(x[1]);}});
+        alvo.funcoes=f;
+        if(alvo.presencas) delete alvo.presencas[de.id];
+        const inst=sairam.filter(x=>INSTRUMENTOS.indexOf(x)>=0);
+        alvo.vagas=(alvo.vagas||[]).filter(v=>sairam.indexOf(v.funcao)<0).concat(sairam.map(fn=>({funcao:fn,deNome:de.nome,em:new Date().toISOString()})));
+        ped.status="aceito"; ped.aprovadoPor=eu.nome; ped.respondidoEm=new Date().toISOString();
+        const fn=(inst.length?inst:sairam).join(", "), link=env.link();
+        if(de.email){const e1=emailVagoDecidido(de,alvo,fn,de.nome,link,env.nomeMin,"de"); try{env.enviar(de.email,e1.assunto,e1.html);}catch(x){}}
+        const mn=db.membros.find(x=>x.id===alvo.ministroId);
+        if(mn&&mn.email&&mn.id!==de.id){const e2=emailVagoDecidido(mn,alvo,fn,de.nome,link,env.nomeMin,"min"); try{env.enviar(mn.email,e2.assunto,e2.html);}catch(x){}}
+        const e3=emailVagoDecidido(null,alvo,fn,de.nome,link,env.nomeMin,"lider");
+        db.membros.filter(m=>m.lider&&m.email&&m.id!==eu.id&&m.id!==de.id&&(!mn||m.id!==mn.id)).forEach(m=>{try{env.enviar(m.email,e3.assunto,e3.html);}catch(x){}});
+        return {vago:true};
+      }
       if(aceitar&&ped.convidado){
         const nomeC=nomeConvidadoValido(db,ped.paraNome);
         aplicarTroca(db,alvo,tipo,de,{convidado:true,nome:nomeC,id:""},ped.funcoes,ped.motivo);
@@ -1061,6 +1130,7 @@ function processar(db,req,env){
         equipe:"",obs:String(c.obs||"").trim(),funcoes:normalizarFuncoes(c.funcoes),dresscode:normalizarDresscode(c.dresscode),
         musicas:atual.musicas||[],feedback:atual.feedback||null,presencas:atual.presencas||{},atualizadoEm:new Date().toISOString()};
       novo.presencas=podarPresencas(db,novo,"culto");
+      novo.vagas=(atual.vagas||[]).filter(v=>{const k=(FUNCOES.find(x=>x[1]===v.funcao)||[])[0];return k&&!String(novo.funcoes[k]||"").trim();});
       novo.pedidos=(atual.pedidos||[]).map(p=>{const d=db.membros.find(x=>x.id===p.de);return p.status==="pendente"&&!(d&&papeisDe(novo,d).length)?Object.assign({},p,{status:"cancelado"}):p;});
       novo.substituicoes=(atual.substituicoes||[]).filter(sb=>{const m=db.membros.find(x=>x.id===sb.para);return m&&papeisDe(novo,m).length>0;});
       if(i>=0) db.cultos[i]=novo; else db.cultos.push(novo);
@@ -1124,7 +1194,7 @@ function hashDemo(t){let h1=0xdeadbeef,h2=0x41c6ce57;for(let i=0;i<t.length;i++)
 const ENVIOS_DEMO=[];
 const ENV_DEMO={hash:t=>hashDemo("demo-avivah|"+t),enviar:(para,assunto)=>{ENVIOS_DEMO.push({para:para,assunto:assunto});},
   hoje:()=>hojeStr(),link:()=>String(location.href).split("#")[0].split("?")[0],nomeMin:"Ministério Avivah"};
-const DEMO_KEY="louvor_demo_v13";
+const DEMO_KEY="louvor_demo_v14";
 let demoMem=null;
 function seed(){
   const now=new Date(), y=now.getFullYear(), m=now.getMonth();
@@ -1192,6 +1262,8 @@ function seed(){
   }
   if(cultos[6]){cultos[6].presencas.p4={s:"nao",motivo:"Viagem a trabalho"};
     cultos[6].pedidos=(cultos[6].pedidos||[]).concat([{id:"pd2",de:"p4",deNome:"Felipe",para:"",paraNome:"Lucas",convidado:true,funcoes:["Baixo"],motivo:"Viagem a trabalho",status:"pendente",em:new Date().toISOString(),respondidoEm:""}]);}
+  if(cultos[7]){cultos[7].presencas.p2={s:"nao",motivo:"Casamento de família"};
+    cultos[7].pedidos=(cultos[7].pedidos||[]).concat([{id:"pd3",de:"p2",deNome:"Daniel",para:"",paraNome:"",vago:true,funcoes:["Guitarra"],motivo:"Casamento de família",status:"pendente",em:new Date().toISOString(),respondidoEm:""}]);}
   const convidados=[{id:"cv1",nome:"Lucas",criadoEm:""},{id:"cv2",nome:"André Baterista",criadoEm:""}];
   const avisos=[{mes:y+"-"+pad(m+1),enviadoEm:"",enviadoDia:"",enviadoPor:"",lembrete3:"",lembrete6:"",publicado:true}];
   return JSON.parse(JSON.stringify({membros:membros,cultos:cultos,limpeza:limpeza,eventos:eventos,avisos:avisos,convidados:convidados}));
@@ -1384,6 +1456,7 @@ function pedidoDe(obj,deId){return (obj.pedidos||[]).filter(p=>p.de===deId&&p.st
 function tagPedido(obj,m){
   if(!m||obj.data<hojeStr()) return "";
   const p=pedidoDe(obj,m.id); if(!p||p.status==="aceito") return "";
+  if(p.status==="pendente"&&p.vago) return '<span class="pt-troca pend">'+ICO_TROCA+'sem músico substituto</span>';
   if(p.status==="pendente"&&p.convidado) return '<span class="pt-troca pend">'+ICO_TROCA+'convidado '+esc(String(p.paraNome).split(/\s+/)[0])+', aguardando confirmação</span>';
   return p.status==="pendente"?'<span class="pt-troca pend">'+ICO_TROCA+'aguardando '+esc(String(p.paraNome).split(/\s+/)[0])+' aceitar</span>':'<span class="pt-troca rec">'+ICO_TROCA+'procurando substituto</span>';
 }
@@ -1397,11 +1470,20 @@ function pedidosParaMim(){
 function pedidosParaAprovar(){
   if(!ehLider()) return [];
   const out=[], hoje=hojeStr();
-  S.cultos.forEach(c=>(c.pedidos||[]).forEach(p=>{if(p.convidado&&p.status==="pendente"&&c.data>=hoje) out.push({tipo:"culto",obj:c,p:p});}));
+  S.cultos.forEach(c=>(c.pedidos||[]).forEach(p=>{if((p.convidado||p.vago)&&p.status==="pendente"&&c.data>=hoje) out.push({tipo:"culto",obj:c,p:p});}));
   return out.sort((a,b)=>a.obj.data.localeCompare(b.obj.data));
 }
 function blocoAprovar(it){
   const d=parseData(it.obj.data), o=it.obj, mot=S.lid.motivos["p:"+it.p.id];
+  if(it.p.vago){
+    const inst=(it.p.funcoes||[]).filter(f=>INSTRUMENTOS.indexOf(f)>=0), fn=(inst.length?inst:it.p.funcoes).join(", ");
+    return '<div class="ag-bloco pedido vago"><div class="ag-item"><span class="ag-dia"><b>'+pad(d.getDate())+'</b><span>'+SEM[d.getDay()]+'</span></span><span class="ag-info">'+
+      '<span class="ag-tipo">Culto · '+diaSemana(d)+(o.hora?' · '+esc(o.hora):'')+'</span><span class="ag-t">'+esc(o.titulo)+'</span>'+
+      '<span class="ag-meta"><strong>'+esc(it.p.deNome)+'</strong> não vai e está sem músico substituto</span>'+
+      '<span class="papeis">'+(it.p.funcoes||[]).map(f=>'<span class="papel">'+esc(f)+'</span>').join("")+'</span>'+
+      (mot?'<span class="ag-meta">Motivo: '+esc(mot)+'</span>':'')+'</span></div>'+
+      '<div class="pres-btns"><button type="button" class="btn ok-btn" data-act="pedido" data-pid="'+esc(it.p.id)+'" data-ac="1">Seguir sem '+esc(fn.toLowerCase())+'</button><button type="button" class="btn ghost" data-act="editarCulto" data-id="'+esc(o.id)+'">Escalar outra pessoa</button></div></div>';
+  }
   return '<div class="ag-bloco pedido conv"><div class="ag-item"><span class="ag-dia"><b>'+pad(d.getDate())+'</b><span>'+SEM[d.getDay()]+'</span></span><span class="ag-info">'+
     '<span class="ag-tipo">Culto · '+diaSemana(d)+(o.hora?' · '+esc(o.hora):'')+'</span><span class="ag-t">'+esc(o.titulo)+'</span>'+
     '<span class="ag-meta"><strong>'+esc(it.p.deNome)+'</strong> pediu o convidado <strong>'+esc(it.p.paraNome)+'</strong> no lugar dele(a)</span>'+
@@ -1423,7 +1505,9 @@ async function responderPedido(pid,aceitar,btn){
   try{
     await chamar("responderPedido",{pedidoId:pid,aceitar:aceitar});
     await carregar(); if(!$("#sheet").hidden) fecharSheet(); render();
-    const conv=[].concat(...S.cultos.map(c=>c.pedidos||[])).some(p=>p.id===pid&&p.convidado);
+    const pp=[].concat(...S.cultos.map(c=>c.pedidos||[])).find(p=>p.id===pid)||{};
+    if(pp.vago){await carregar(); if(!$("#sheet").hidden) fecharSheet(); render(); toast("Combinado: o culto segue sem o instrumento. Avisamos o ministro."); return;}
+    const conv=!!pp.convidado;
     toast(conv?(aceitar?"Convidado aprovado. A escala foi atualizada.":"Pedido recusado. Quem pediu vai indicar outra pessoa."):(aceitar?"Substituição aceita. Obrigado por servir!":"Resposta enviada. Quem pediu vai indicar outra pessoa."));
   }catch(err){toast(err.message); if(btn) livre(btn);}
 }
@@ -1432,11 +1516,13 @@ function abrirPedido(pid){
   S.cultos.forEach(c=>(c.pedidos||[]).forEach(p=>{if(p.id===pid) it={tipo:"culto",obj:c,p:p};}));
   S.limpeza.forEach(x=>(x.pedidos||[]).forEach(p=>{if(p.id===pid) it={tipo:"limpeza",obj:x,p:p};}));
   if(!it){toast("Pedido não encontrado."); return;}
-  if(it.p.convidado){
-    if(!ehLider()){toast("A confirmação de convidados é feita pelos líderes do ministério."); return;}
+  if(it.p.convidado||it.p.vago){
+    if(!ehLider()){toast("Essa decisão é tomada pelos líderes do ministério."); return;}
     if(it.p.status!=="pendente"){toast("Este pedido já foi respondido."); return;}
     S.aba="agenda"; render();
-    abrirSheet('<div class="eyebrow">Substituição por convidado</div><h2 class="sh-title" id="sheetTitulo">Aprovar '+esc(it.p.paraNome)+'?</h2>'+
+    abrirSheet(it.p.vago?'<div class="eyebrow">Sem músico substituto</div><h2 class="sh-title" id="sheetTitulo">Como fica este culto?</h2>'+
+      '<p class="lead">'+esc(it.p.deNome)+' não vai conseguir servir e não encontrou substituto. Escolha seguir sem o instrumento ou escalar outra pessoa.</p>'+blocoAprovar(it)
+      :'<div class="eyebrow">Substituição por convidado</div><h2 class="sh-title" id="sheetTitulo">Aprovar '+esc(it.p.paraNome)+'?</h2>'+
       '<p class="lead">'+esc(it.p.deNome)+' não vai conseguir servir e indicou um convidado de fora da igreja. Ao aprovar, a escala é atualizada.</p>'+blocoAprovar(it));
     return;
   }
@@ -1481,7 +1567,8 @@ function avisoCard(c){
   const linhas=[];
   nao.forEach(n=>{
     const m=membroPorNome(n), p=m&&pedidoDe(c,m.id), pn=x=>esc(String(x).split(/\s+/)[0]);
-    if(p&&p.status==="pendente"&&p.convidado) linhas.push('<strong>'+pn(n)+'</strong> não vai; pediu o convidado <strong>'+esc(p.paraNome)+'</strong>. Falta aprovar.');
+    if(p&&p.status==="pendente"&&p.vago) linhas.push('<strong>'+pn(n)+'</strong> não vai e está sem músico substituto. Falta decidir.');
+    else if(p&&p.status==="pendente"&&p.convidado) linhas.push('<strong>'+pn(n)+'</strong> não vai; pediu o convidado <strong>'+esc(p.paraNome)+'</strong>. Falta aprovar.');
     else if(p&&p.status==="pendente") linhas.push('<strong>'+pn(n)+'</strong> não vai; aguardando <strong>'+pn(p.paraNome)+'</strong> aceitar.');
     else if(p&&p.status==="recusado") linhas.push('<strong>'+pn(n)+'</strong> não vai e <strong>'+pn(p.paraNome)+'</strong> recusou substituir.');
     else linhas.push('<strong>'+pn(n)+'</strong> avisou que não vai.');
@@ -1512,9 +1599,11 @@ function cardCulto(c){
   const d=parseData(c.data), f=c.funcoes||{}, m=membro(c.ministroId);
   const equipe=[];
   FUNCOES.forEach(x=>String(f[x[0]]||"").split(/\s*,\s*|\s+e\s+/).filter(Boolean).forEach(n=>equipe.push({nome:n,funcao:x[1]})));
+  (c.vagas||[]).forEach(v=>equipe.push({vaga:true,funcao:v.funcao,deNome:v.deNome}));
   const alertas=alertasCulto(c), futuro=c.data>=hojeStr();
   const alertaDe=nome=>{const mm=membroPorNome(nome);return mm?alertas.filter(a=>a.id===mm.id):[];};
   const grade=equipe.length?'<span class="equipe-grid">'+equipe.map(p=>{
+      if(p.vaga) return '<span class="pessoa-t vaga"><span class="av-p av-vago" aria-hidden="true">—</span><span class="pt-txt"><span class="pt-nome">Sem músico</span><span class="pt-func">'+esc(p.funcao)+'</span><span class="pt-vago">neste culto</span></span></span>';
       const mm=membroPorNome(p.nome), al=alertaDe(p.nome).filter(a=>a.tipo==="indisp"||a.funcoes.indexOf(p.funcao)>=0), cls=al.length?(al[0].tipo==="indisp"?' anel-indisp':' anel-dup'):'';
       const nao=mm&&futuro&&recusou(c,mm.id);
       const tr=mm?subDe(c,mm.id):subPorNome(c,p.nome), conv=!mm&&ehConvidado(p.nome);
@@ -1640,7 +1729,7 @@ function viewAgenda(){
   return '<div class="ag-head">'+avatar(membro(eu.id)||eu)+'<div><p class="ag-ola">Olá, '+esc(primeiro)+'!</p><p class="ag-sub">'+sub+'</p>'+
     (pend?'<p class="ag-pend">'+pend+(pend>1?' presenças para confirmar':' presença para confirmar')+'</p>':'')+
     '<button type="button" class="btn ghost sm" data-act="indisp" style="margin-top:8px">Marcar dias que não posso</button></div></div>'+
-    (pedidosParaAprovar().length?'<p class="ag-sec pedidos">Convidados aguardando sua aprovação</p><div class="ag-list">'+pedidosParaAprovar().map(blocoAprovar).join("")+'</div>':'')+
+    (pedidosParaAprovar().length?'<p class="ag-sec pedidos">Aguardando sua decisão</p><div class="ag-list">'+pedidosParaAprovar().map(blocoAprovar).join("")+'</div>':'')+
     (pedidosParaMim().length?'<p class="ag-sec pedidos">Pedidos de substituição para você</p><div class="ag-list">'+pedidosParaMim().map(blocoPedido).join("")+'</div>':'')+
     (n?'<div class="ag-list">'+itens.map(linha).join("")+'</div>':'')+
     (evs.length?'<p class="ag-sec">Eventos do ministério '+quando+'</p><div class="ag-list">'+evs.map(linhaEv).join("")+'</div>':'');
@@ -1709,6 +1798,7 @@ function viewAusencias(){
     const comPedido={};
     (a.pedidos||[]).filter(p=>p.status!=="cancelado").forEach(p=>{
       comPedido[p.de]=1;
+      if(p.vago){itens.push({data:a.data,ordem:1,tipo:p.status==="aceito"?"vago":"vagopend",pessoa:p.deNome,id:p.de,funcoes:p.funcoes||[],motivo:S.lid.motivos["p:"+p.id]||"",alvo:titulo,abrir:tipo==="culto"?a.id:"",tipoAlvo:tipo}); return;}
       itens.push({data:a.data,ordem:1,conv:!!p.convidado,tipo:p.status==="aceito"?"subst":p.status==="recusado"?"recusado":"pendente",pessoa:p.deNome,id:p.de,sub:p.paraNome,funcoes:p.funcoes||[],
         motivo:S.lid.motivos["p:"+p.id]||"",alvo:titulo,abrir:tipo==="culto"?a.id:"",tipoAlvo:tipo});
     });
@@ -1724,17 +1814,20 @@ function viewAusencias(){
   varrer(S.cultos,"culto"); varrer(S.limpeza,"limpeza");
   itens.sort((a,b)=>(a.data+a.ordem+a.pessoa).localeCompare(b.data+b.ordem+b.pessoa));
   const cont=t=>itens.filter(i=>t.indexOf(i.tipo)>=0).length;
+  /* vagopend conta como "sem substituto confirmado" */
   const resumo='<div class="aus-resumo">'+
     '<div class="aus-num"><b>'+cont(["indisp"])+'</b><span>dias indisponíveis</span></div>'+
-    '<div class="aus-num pend"><b>'+cont(["pendente","recusado","semsub"])+'</b><span>sem substituto confirmado</span></div>'+
+    '<div class="aus-num pend"><b>'+cont(["pendente","recusado","semsub","vagopend"])+'</b><span>sem substituto confirmado</span></div>'+
     '<div class="aus-num ok"><b>'+cont(["subst"])+'</b><span>substituições feitas</span></div></div>';
   if(!itens.length) return '<div class="aus-topo"><h2>Ausências de '+mesN+'</h2><p>Só líderes veem esta página.</p></div>'+resumo+'<div class="vazio"><p class="vazio-t">Nenhuma ausência em '+mesN+'</p><p>Quando alguém marcar um dia indisponível ou pedir substituição, aparece aqui.</p></div>';
-  const ROT={indisp:["Indisponível","r"],pendente:["Aguardando aceite","o"],recusado:["Substituto recusou","r"],semsub:["Sem substituto","r"],subst:["Substituído","b"]};
+  const ROT={vago:["Função vaga","v"],vagopend:["Sem músico substituto","o"],indisp:["Indisponível","r"],pendente:["Aguardando aceite","o"],recusado:["Substituto recusou","r"],semsub:["Sem substituto","r"],subst:["Substituído","b"]};
   const linha=i=>{
     const rt=ROT[i.tipo];
     let det="";
     if(i.tipo==="indisp") det=i.conflito.length?'<span class="aus-conf">Está escalado(a): '+esc(i.conflito.join(" · "))+'</span>':'<span class="aus-ok">Não está escalado(a) neste dia</span>';
     else if(i.tipo==="subst") det='<span>'+esc(i.alvo)+' · '+esc(i.funcoes.join(", "))+'</span><span class="aus-sub">'+ICO_TROCA+esc(i.sub)+' no lugar'+(i.conv?' <em class="pt-conv">Convidado</em>':'')+'</span>';
+    else if(i.tipo==="vago") det='<span>'+esc(i.alvo)+'</span><span class="aus-pend">O culto segue sem '+esc(i.funcoes.filter(f=>INSTRUMENTOS.indexOf(f)>=0).join(", ").toLowerCase()||i.funcoes.join(", ").toLowerCase())+'</span>';
+    else if(i.tipo==="vagopend") det='<span>'+esc(i.alvo)+' · '+esc(i.funcoes.join(", "))+'</span><span class="aus-conf">Sem músico substituto; falta os líderes decidirem</span>';
     else if(i.tipo==="pendente") det='<span>'+esc(i.alvo)+' · '+esc(i.funcoes.join(", "))+'</span><span class="aus-pend">'+(i.conv?'Pediu o convidado '+esc(i.sub)+'; falta um líder aprovar':'Pediu a '+esc(prim(i.sub))+', ainda sem resposta')+'</span>';
     else if(i.tipo==="recusado") det='<span>'+esc(i.alvo)+' · '+esc(i.funcoes.join(", "))+'</span><span class="aus-conf">'+esc(prim(i.sub))+' não pode; falta indicar outra pessoa</span>';
     else det='<span>'+esc(i.alvo)+'</span><span class="aus-conf">Avisou que não vai e não indicou substituto</span>';
@@ -1752,7 +1845,7 @@ function viewAusencias(){
     '<div class="aus-p">'+avatarPessoa(n)+'<span><b>'+esc(n)+'</b><small>'+pessoas[n].map(i=>{const d=parseData(i.data);return pad(d.getDate())+'/'+pad(d.getMonth()+1);}).filter((v,k,a)=>a.indexOf(v)===k).join(", ")+'</small></span><em title="dias">'+pessoas[n].map(i=>i.data).filter((v,k,a)=>a.indexOf(v)===k).length+'</em></div>').join("")+'</div>';
   const apr=pedidosParaAprovar();
   return '<div class="aus-topo"><h2>Ausências de '+mesN+'</h2><p>Só líderes veem esta página. Toque em um culto para abrir os detalhes.</p></div>'+resumo+
-    (apr.length?'<h3 class="aus-sec">Convidados aguardando aprovação</h3><div class="ag-list">'+apr.map(blocoAprovar).join("")+'</div>':'')+
+    (apr.length?'<h3 class="aus-sec">Aguardando decisão dos líderes</h3><div class="ag-list">'+apr.map(blocoAprovar).join("")+'</div>':'')+
     '<h3 class="aus-sec">Por dia</h3>'+porDia+'<h3 class="aus-sec">Por pessoa</h3>'+porPessoa;
 }
 
@@ -1871,6 +1964,7 @@ function botoesPresenca(tipo,id,p){
   if(p&&p.s==="ok") return '<div class="pres-st ok"><span>'+SELO.ok[0]+'Presença confirmada</span><button type="button" class="link-btn" data-act="presenca" data-tipo="'+tipo+'" data-id="'+esc(id)+'" data-r="">Desfazer</button></div>';
   if(p&&p.s==="nao"){
     const obj=tipo==="culto"?S.cultos.find(x=>x.id===id):S.limpeza.find(x=>x.id===id), ped=obj&&S.eu?pedidoDe(obj,S.eu.id):null;
+    if(ped&&ped.status==="pendente"&&ped.vago) return '<div class="pres-st pend"><span>'+ICO_TROCA+'Sem músico substituto: aguardando os líderes decidirem. Você continua na escala até lá.</span><button type="button" class="link-btn" data-act="presenca" data-tipo="'+tipo+'" data-id="'+esc(id)+'" data-r="">Cancelar pedido</button></div>';
     if(ped&&ped.status==="pendente") return '<div class="pres-st pend"><span>'+ICO_TROCA+(ped.convidado?'Aguardando a confirmação do convidado '+esc(ped.paraNome)+'.':'Aguardando '+esc(String(ped.paraNome).split(/\s+/)[0])+' aceitar.')+' Você continua na escala até lá.</span><button type="button" class="link-btn" data-act="presenca" data-tipo="'+tipo+'" data-id="'+esc(id)+'" data-r="">Cancelar pedido</button></div>';
     if(ped&&ped.status==="recusado") return '<div class="pres-st nao col"><span>'+(ped.convidado?'Desta vez o convidado '+esc(ped.paraNome)+' não foi confirmado.':esc(String(ped.paraNome).split(/\s+/)[0])+' não pode substituir.')+' Indique outra pessoa.</span><div class="pres-btns" style="margin-top:8px"><button type="button" class="btn nao-cheio" data-act="presenca" data-tipo="'+tipo+'" data-id="'+esc(id)+'" data-r="nao">Indicar outra pessoa</button><button type="button" class="btn ghost" data-act="presenca" data-tipo="'+tipo+'" data-id="'+esc(id)+'" data-r="ok">Vou conseguir ir</button></div></div>';
     return '<div class="pres-st nao"><span>Sua ausência foi registrada. Obrigado por avisar!</span><button type="button" class="link-btn" data-act="presenca" data-tipo="'+tipo+'" data-id="'+esc(id)+'" data-r="">Desfazer</button></div>';
@@ -1896,7 +1990,7 @@ function secPresenca(c){
     '<ul class="pres-list">'+linhas+'</ul>'+
     ((c.substituicoes||[]).length?'<div class="subs-hist"><h4>'+ICO_TROCA+'Substituições</h4>'+(c.substituicoes||[]).map(sb=>{const mot=ehLider()?S.lid.motivos["s:"+c.id+":"+sb.de+":"+sb.para]:"";
       return '<p><strong>'+esc(sb.paraNome)+'</strong> no lugar de <strong>'+esc(sb.deNome)+'</strong> · '+esc((sb.funcoes||[]).join(", "))+(mot?'<small>Motivo: '+esc(mot)+'</small>':'')+'</p>';}).join("")+'</div>':'')+
-    (ehLider()?(c.pedidos||[]).filter(p=>p.convidado&&p.status==="pendente").map(p=>blocoAprovar({tipo:"culto",obj:c,p:p})).join(""):'')+
+    (ehLider()?(c.pedidos||[]).filter(p=>(p.convidado||p.vago)&&p.status==="pendente").map(p=>blocoAprovar({tipo:"culto",obj:c,p:p})).join(""):'')+
     (convidadosDoCulto(c).length?'<p class="nota">Convidados neste culto: '+convidadosDoCulto(c).map(x=>'<strong>'+esc(x.nome)+'</strong> ('+esc(x.funcao)+')').join(", ")+'</p>':'')+
     (ehLider()&&k.nao?'<div class="actions" style="margin-top:8px"><button class="btn" data-act="editarCulto" data-id="'+esc(c.id)+'">Escolher substituto</button></div>':'')+'</div>';
 }
@@ -1937,7 +2031,7 @@ function abrirCulto(id){
       '<h2 class="sh-title" id="sheetTitulo">'+esc(c.titulo)+'</h2><div class="cm">Ministro: <strong>'+esc(nomeMinistro(c.ministroId))+'</strong></div></div></div>'+
     ((dc.length||podeDresscode())?'<div class="sec"><div class="sec-h"><h3>Dresscode</h3>'+(podeDresscode()?'<button type="button" class="btn ghost sm" data-act="dresscode" data-id="'+esc(c.id)+'">'+(dc.length?'Editar':'Definir')+'</button>':'')+'</div>'+
       (dc.length?'<div class="dc-list">'+dc.map(h=>'<span class="dc-item"><span class="dot" style="background:'+h+'"></span>'+esc(nomeCor(h))+'</span>').join("")+'</div>':'<p class="nd" style="margin:0">Ainda sem dresscode.</p>')+'</div>':'')+
-    '<div class="sec"><h3>Equipe</h3>'+(temF?'<dl class="facts">'+FUNCOES.map(x=>'<div><dt>'+x[1]+'</dt><dd>'+(f[x[0]]?esc(f[x[0]]):'<span class="nd">–</span>')+'</dd></div>').join("")+'</dl>'
+    '<div class="sec"><h3>Equipe</h3>'+(temF||(c.vagas||[]).length?'<dl class="facts">'+FUNCOES.map(x=>'<div><dt>'+x[1]+'</dt><dd>'+(f[x[0]]?esc(f[x[0]]):(c.vagas||[]).some(v=>v.funcao===x[1])?'<span class="vago-txt">Sem músico neste culto</span>':'<span class="nd">–</span>')+'</dd></div>').join("")+'</dl>'
       :(c.equipe?'<p style="white-space:pre-line;margin:0">'+esc(c.equipe)+'</p>':'<p class="nd" style="margin:0">Equipe a definir.</p>'))+'</div>'+
     (c.obs?'<div class="sec"><h3>Avisos</h3><p style="margin:0;white-space:pre-line">'+esc(c.obs)+'</p></div>':'')+
     '<div class="sec"><div class="sec-h"><h3>Repertório</h3>'+pill(n)+'</div>'+
@@ -2020,7 +2114,8 @@ function opcoesSubstituto(obj,tipo){
   const jaNomes=tipo==="culto"?FUNCOES.map(x=>(obj.funcoes||{})[x[0]]).join(", "):"";
   const convs=tipo==="culto"&&!ehMin?S.convidados.filter(c=>!estaNaLista(jaNomes,c.nome)).sort((a,b)=>a.nome.localeCompare(b.nome)):[];
   const optConv=tipo==="culto"&&!ehMin?'<optgroup label="Músico de fora (convidado)">'+convs.map(c=>'<option value="c:'+esc(c.nome)+'">'+esc(c.nome)+' · convidado</option>').join("")+'<option value="c:__novo">+ Novo convidado…</option></optgroup>':'';
-  return {html:'<option value="">Escolha um membro</option>'+(sug.length&&rot?'<optgroup label="'+rot+'">'+op(sug)+'</optgroup>'+(outros.length?'<optgroup label="Outros membros">'+op(outros)+'</optgroup>':''):op(sug.concat(outros)))+optConv,
+  const optVago=tipo==="culto"&&!ehMin&&toca?'<optgroup label="Sem substituto"><option value="vago">Sem músico substituto</option></optgroup>':'';
+  return {html:'<option value="">Escolha um membro</option>'+(sug.length&&rot?'<optgroup label="'+rot+'">'+op(sug)+'</optgroup>'+(outros.length?'<optgroup label="Outros membros">'+op(outros)+'</optgroup>':''):op(sug.concat(outros)))+optConv+optVago,
     vazio:!sug.length&&!outros.length, ehMin:ehMin, meus:meus};
 }
 function telaRecusa(tipo,id){
@@ -2032,11 +2127,12 @@ function telaRecusa(tipo,id){
     '<label for="recSub">Quem vai te substituir (obrigatório)</label><select id="recSub">'+o.html+'</select>'+
     '<input id="recConvNome" placeholder="Nome do convidado" autocomplete="off" hidden>'+
     '<p class="hint" id="recConvHint" hidden>Como convidados não têm conta no app, os líderes confirmam a troca.</p>'+
+    '<p class="hint" id="recVagoHint" hidden>Os líderes vão decidir se o culto segue sem '+esc(o.meus.filter(f=>INSTRUMENTOS.indexOf(f)>=0).join(", ").toLowerCase())+' ou se escalam outra pessoa. Você continua na escala até lá.</p>'+
     (o.ehMin?'<p class="hint">Como você é o ministro deste culto, só aparecem outros ministros.</p>':'')+
     (o.vazio?'<p class="hint">Não há ninguém disponível para indicar. Fale com um líder.</p>':'')+
     '<label for="recMotivo">Motivo (obrigatório, fica entre você e os líderes)</label><textarea id="recMotivo" required placeholder="Ex.: vou estar viajando nesse fim de semana."></textarea><p class="err" id="errRecusa"></p>'+
     '<div class="actions"><button class="btn nao-cheio" type="submit">'+ICO_TROCA_BTN+'Enviar pedido</button><button class="btn ghost" type="button" data-act="fechar">Voltar</button></div></form>');
-  $("#recSub").addEventListener("change",()=>{const v=$("#recSub").value; $("#recConvNome").hidden=v!=="c:__novo"; $("#recConvHint").hidden=v.indexOf("c:")!==0; if(v==="c:__novo") $("#recConvNome").focus();});
+  $("#recSub").addEventListener("change",()=>{const v=$("#recSub").value; $("#recConvNome").hidden=v!=="c:__novo"; $("#recConvHint").hidden=v.indexOf("c:")!==0; $("#recVagoHint").hidden=v!=="vago"; if(v==="c:__novo") $("#recConvNome").focus();});
   $("#fRecusa").onsubmit=async e=>{e.preventDefault();
     const sub=$("#recSub").value, mot=$("#recMotivo").value.trim(), btn=e.submitter||$("#fRecusa button[type=submit]");
     if(!sub){$("#errRecusa").textContent="Escolha quem vai te substituir.";$("#recSub").focus();return;}
@@ -2045,9 +2141,9 @@ function telaRecusa(tipo,id){
     if(mot.length<3){$("#errRecusa").textContent="Nos conte o motivo da ausência, é importante.";$("#recMotivo").focus();return;}
     ocupado(btn,"Enviando…");
     try{
-      const r=await chamar("responderPresenca",conv?{tipo:tipo,id:id,resposta:"nao",motivo:mot,convidadoNome:conv}:{tipo:tipo,id:id,resposta:"nao",motivo:mot,substitutoId:sub});
+      const r=await chamar("responderPresenca",sub==="vago"?{tipo:tipo,id:id,resposta:"nao",motivo:mot,semSubstituto:true}:conv?{tipo:tipo,id:id,resposta:"nao",motivo:mot,convidadoNome:conv}:{tipo:tipo,id:id,resposta:"nao",motivo:mot,substitutoId:sub});
       await carregar(); fecharSheet(); render();
-      toast(r.convidado?"Pedido enviado. Avisaremos quando o convidado "+r.substituto+" for confirmado.":"Pedido enviado para "+String(r.substituto).split(/\s+/)[0]+". Avisaremos quando ela(e) responder.");
+      toast(r.semSubstituto?"Ausência registrada. Os líderes vão decidir como fica o "+o.meus.filter(f=>INSTRUMENTOS.indexOf(f)>=0).join(", ").toLowerCase()+".":r.convidado?"Pedido enviado. Avisaremos quando o convidado "+r.substituto+" for confirmado.":"Pedido enviado para "+String(r.substituto).split(/\s+/)[0]+". Avisaremos quando ela(e) responder.");
     }catch(err){$("#errRecusa").textContent=err.message;livre(btn);}
   };
 }
@@ -2391,7 +2487,7 @@ function textoCulto(c){
   const d=parseData(c.data), f=c.funcoes||{}, dc=normalizarDresscode(c.dresscode);
   const linhas=["*"+c.titulo+"* — "+pad(d.getDate())+"/"+pad(d.getMonth()+1)+" ("+diaSemana(d)+")"+(c.hora?" · "+c.hora:""),"Ministro: "+nomeMinistro(c.ministroId)];
   if(dc.length) linhas.push("Dresscode: "+dc.map(nomeCor).join(", "));
-  const eq=FUNCOES.filter(x=>f[x[0]]).map(x=>x[1]+": "+f[x[0]]);
+  const eq=FUNCOES.filter(x=>f[x[0]]).map(x=>x[1]+": "+f[x[0]]).concat((c.vagas||[]).map(v=>v.funcao+": sem músico neste culto"));
   if(eq.length) linhas.push("",...eq);
   if(preenchidas(c)){
     linhas.push("","*Repertório*");
