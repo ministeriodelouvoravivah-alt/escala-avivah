@@ -205,6 +205,13 @@ main{display:flex;flex-direction:column;gap:14px}
 .bloco{border:1px solid var(--line);border-radius:14px;padding:6px 14px 14px;margin:10px 0 2px;display:flex;flex-direction:column;gap:6px;min-width:0}
 .bloco legend{font-family:var(--f-display);font-weight:800;font-size:13px;letter-spacing:.04em;text-transform:uppercase;color:var(--brand);padding:0 6px;margin-left:-6px}
 .lbl-row{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.lbl-acoes{display:flex;gap:12px;align-items:baseline}
+button.mini{background:none;border:0;padding:0;font-family:inherit;cursor:pointer}
+.mini.colar{color:var(--brand)}
+.rep-auto{margin:-4px 0 12px}
+.rep-auto svg,.rep-recup svg{width:15px;height:15px;flex:none;margin-top:1px}
+.rep-recup{display:flex;justify-content:space-between;align-items:center;gap:10px;background:#e7f6ec;color:#1d6b3a;border-radius:12px;padding:10px 12px;margin:0 0 12px;font-size:13.5px}
+.rep-recup .rr-txt{display:flex;gap:6px;align-items:flex-start}
 .mini{font-size:12px;font-weight:600;color:var(--flame);text-decoration:none;white-space:nowrap}
 .mus.oferta{border-color:var(--flame);background:var(--flame-soft)}
 .mus.oferta legend{color:var(--flame)}
@@ -580,7 +587,7 @@ const CONFIG = {
   API_URL: "https://script.google.com/macros/s/AKfycbxrhX4edbA7aVQrjiIY4e7g8OeeX_7A9HvKmPRTUlxskJDYWYRQ8M6rKq8xc8HBBHF8/exec",
   NOME: "Ministério Avivah"
 };
-const VERSAO_APP = "2026.10.25-4"; // muda a cada versão enviada; não precisa editar
+const VERSAO_APP = "2026.11.10-1"; // muda a cada versão enviada; não precisa editar
 /* ======================================================== */
 
 const MESES=["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
@@ -1868,13 +1875,14 @@ function viewAusencias(){
 /* ================= Painel ================= */
 let ultimoFoco=null;
 function abrirSheet(html){
+  repMarcarAberto(false);
   if($("#sheet").hidden) ultimoFoco=document.activeElement;
   $("#sheetBody").innerHTML=html; $("#sheet").hidden=false;
   document.body.style.overflow="hidden";
   $(".sheet-panel").scrollTop=0;
   const f=$("#sheetBody").querySelector("input:not([type=file]):not([type=color]):not([type=checkbox]),select,textarea"); if(f&&!("ontouchstart" in window)) f.focus();
 }
-function fecharSheet(){$("#sheet").hidden=true;document.body.style.overflow="";if(ultimoFoco&&ultimoFoco.focus) try{ultimoFoco.focus();}catch(e){}}
+function fecharSheet(){repMarcarAberto(false);$("#sheet").hidden=true;document.body.style.overflow="";if(ultimoFoco&&ultimoFoco.focus) try{ultimoFoco.focus();}catch(e){}}
 let toastT;
 function toast(msg){const t=$("#toast");t.textContent=msg;t.classList.add("on");clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove("on"),2600);}
 function ocupado(btn,txt){btn.disabled=true;btn.dataset.txt=btn.textContent;btn.textContent=txt;}
@@ -2072,16 +2080,47 @@ function fsMusica(m,i){
     '<label for="'+p+'t">Nome da música</label><input id="'+p+'t" value="'+esc(m.titulo)+'" placeholder="'+(i===4?'Ex.: Sonda-me, Usa-me':'Ex.: Bondade de Deus')+'" autocomplete="off">'+
     '<div class="row2"><div><label for="'+p+'a">Artista / versão</label><input id="'+p+'a" value="'+esc(m.artista)+'" placeholder="Ex.: Isaías Saad" autocomplete="off"></div>'+
     '<div><label for="'+p+'k">Tom</label><input id="'+p+'k" class="mono" list="tons" value="'+esc(m.tom)+'" placeholder="G" autocomplete="off" autocapitalize="characters"></div></div>'+
-    '<div class="lbl-row"><label for="'+p+'l">Link do YouTube</label><a class="mini" id="'+p+'s" href="https://www.youtube.com/" target="_blank" rel="noopener">Buscar no YouTube ↗</a></div>'+
+    '<div class="lbl-row"><label for="'+p+'l">Link do YouTube</label><span class="lbl-acoes">'+(podeColar()?'<button type="button" class="mini colar" data-colar="'+i+'">Colar link</button>':'')+'<a class="mini" id="'+p+'s" href="https://www.youtube.com/" target="_blank" rel="noopener">Buscar no YouTube ↗</a></span></div>'+
     '<input id="'+p+'l" type="url" inputmode="url" value="'+esc(m.link)+'" placeholder="https://youtu.be/…" autocomplete="off">'+
     '<p class="hint" id="'+p+'h"></p></fieldset>';
 }
+/* Rascunho do repertório: guarda no aparelho enquanto o ministro preenche,
+   para não perder nada ao sair do app para copiar o link no YouTube. */
+const ICO_SALVO='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>';
+const REP_KEY="louvor_rep_rascunho", REP_VALIDADE=7*24*3600*1000;
+function podeColar(){return !!(navigator.clipboard&&navigator.clipboard.readText);}
+function repLer(){const r=lerJsonLocal(REP_KEY,null);return r&&Date.now()-(r.em||0)<REP_VALIDADE?r:null;}
+function repDoCulto(c){const r=repLer();return r&&S.eu&&r.cultoId===c.id&&r.eu===S.eu.id?r:null;}
+function repMarcarAberto(v){const r=repLer();if(r&&r.aberto!==v){r.aberto=v;lsSet(REP_KEY,JSON.stringify(r));}}
+function repLimpar(){lsSet(REP_KEY,null);}
+function repListaForm(){return [0,1,2,3,4].map(i=>({titulo:$("#m"+i+"t").value,artista:$("#m"+i+"a").value,tom:$("#m"+i+"k").value,link:$("#m"+i+"l").value}));}
+function retomarRep(){
+  const r=repLer(); if(!r||!r.aberto||!S.eu||r.eu!==S.eu.id||!$("#sheet").hidden) return;
+  const c=S.cultos.find(x=>x.id===r.cultoId); if(!c||!podeRep(c)) return;
+  formRep(c); toast("Continuando o repertório de onde você parou");
+}
 function formRep(c){
-  const ms=c.musicas||[];
+  const salvo=c.musicas||[], rasc=repDoCulto(c);
+  const igual=rasc&&JSON.stringify(rasc.lista.map(m=>[m.titulo,m.artista,m.tom,m.link].map(x=>String(x||"").trim())))===JSON.stringify([0,1,2,3,4].map(i=>{const m=salvo[i]||{};return [m.titulo,m.artista,m.tom,m.link].map(x=>String(x||"").trim());}));
+  const ms=rasc?rasc.lista:salvo;
   abrirSheet('<div class="eyebrow">'+esc(c.titulo)+' · '+dataCurta(c.data)+'</div><h2 class="sh-title" id="sheetTitulo">Repertório</h2>'+
     '<p class="lead">As 4 músicas do culto seguem esta ordem: <strong>Celebração, Exaltação, Rendição e Adoração</strong>. Depois vem a música do momento da oferta. Cada música precisa do link da versão no YouTube.</p>'+
+    (rasc&&!igual?'<div class="rep-recup" id="repRecup"><span class="rr-txt">'+ICO_SALVO+'<span>Recuperamos o que você já tinha preenchido. Falta só <strong>salvar</strong>.</span></span><button type="button" class="mini" id="repDescartar">Começar de novo</button></div>':'')+
+    '<p class="hint rep-auto">O que você preenche fica guardado neste aparelho. Pode sair para copiar o link no YouTube e voltar.</p>'+
     '<form id="fRep" class="form" novalidate>'+[0,1,2,3,4].map(i=>fsMusica(ms[i]||{},i)).join("")+
-    '<p class="err" id="errRep"></p><div class="actions"><button class="btn" type="submit">Salvar repertório</button><button class="btn ghost" type="button" data-act="abrir" data-id="'+esc(c.id)+'">Cancelar</button></div></form>');
+    '<p class="err" id="errRep"></p><div class="actions"><button class="btn" type="submit">Salvar repertório</button><button class="btn ghost" type="button" id="repCancelar" data-act="abrir" data-id="'+esc(c.id)+'">Cancelar</button></div></form>');
+  const guardar=()=>lsSet(REP_KEY,JSON.stringify({cultoId:c.id,eu:S.eu&&S.eu.id,lista:repListaForm(),aberto:true,em:Date.now()}));
+  if(rasc) repMarcarAberto(true);
+  $("#fRep").addEventListener("input",guardar);
+  $("#fRep").addEventListener("change",guardar);
+  $("#repCancelar").addEventListener("click",repLimpar);
+  if($("#repDescartar")) $("#repDescartar").onclick=()=>{repLimpar();formRep(c);};
+  $("#fRep").querySelectorAll("[data-colar]").forEach(b=>b.onclick=async()=>{
+    const inp=$("#m"+b.dataset.colar+"l");
+    try{const t=(await navigator.clipboard.readText()||"").trim(); if(!t){toast("Nada copiado ainda. Copie o link no YouTube.");return;}
+      inp.value=t; inp.dispatchEvent(new Event("input",{bubbles:true})); }
+    catch(e){toast("Toque e segure no campo e escolha Colar.");inp.focus();}
+  });
   for(let i=0;i<5;i++){
     const atual=()=>{
       const t=$("#m"+i+"t").value.trim(),a=$("#m"+i+"a").value.trim(),l=$("#m"+i+"l").value.trim();
@@ -2101,7 +2140,7 @@ function formRep(c){
     let musicas;
     try{musicas=normalizarMusicas(lista);}catch(err){$("#errRep").textContent=err.message;return;}
     $("#errRep").textContent=""; ocupado(btn,"Salvando…");
-    try{await chamar("saveRepertorio",{cultoId:c.id,musicas:musicas});await carregar();toast("Repertório salvo");abrirCulto(c.id);}
+    try{await chamar("saveRepertorio",{cultoId:c.id,musicas:musicas});repLimpar();await carregar();toast("Repertório salvo");abrirCulto(c.id);}
     catch(err){$("#errRep").textContent=err.message;livre(btn);}
   };
 }
@@ -2649,7 +2688,7 @@ if(S.eu) S.aba="agenda";
 prepararLogin();
 verificarVersao();
 const pedidoUrl=(()=>{try{return new URLSearchParams(location.search).get("pedido");}catch(e){return null;}})();
-render(); carregar(); restaurarSessao();
+render(); carregar().then(()=>{if(!pedidoUrl) retomarRep();}); restaurarSessao();
 if(pedidoUrl){
   try{history.replaceState(null,"",location.pathname+location.hash);}catch(e){}
   const abrir=()=>{const go=()=>abrirPedido(pedidoUrl); if(S.cultos.length||S.limpeza.length) go(); else setTimeout(go,1500);};
