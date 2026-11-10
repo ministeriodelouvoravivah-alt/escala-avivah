@@ -321,6 +321,7 @@ button.ag-item:hover{border-color:var(--flame)}
 .min-dest{display:flex;align-items:center;gap:14px;padding:14px 14px 12px}
 .min-dest .foto{width:92px;height:92px;flex:none}
 .min-info{display:flex;flex-direction:column;gap:3px;min-width:0}
+.min-rot.conv{align-self:flex-start;background:#efe6fb;color:#5b2d9a;padding:2px 9px;border-radius:999px;letter-spacing:.08em}
 .min-rot{font-family:var(--f-display);font-weight:800;font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--flame)}
 .min-nm{font-family:var(--f-display);font-weight:800;font-size:22px;line-height:1.1;color:var(--brand);overflow-wrap:anywhere}
 .min-tit{font-size:13px;color:var(--muted)}
@@ -601,7 +602,7 @@ const CONFIG = {
   API_URL: "https://script.google.com/macros/s/AKfycbxrhX4edbA7aVQrjiIY4e7g8OeeX_7A9HvKmPRTUlxskJDYWYRQ8M6rKq8xc8HBBHF8/exec",
   NOME: "Ministério Avivah"
 };
-const VERSAO_APP = "2026.11.10-4"; // muda a cada versão enviada; não precisa editar
+const VERSAO_APP = "2026.11.10-6"; // muda a cada versão enviada; não precisa editar
 /* ======================================================== */
 
 const MESES=["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
@@ -710,6 +711,7 @@ function nomeNaLista(txt,nome){const n=norm(nome),p=n.split(/\s+/)[0];return nom
 function papeisDe(c,m){const out=[];if(c.ministroId===m.id) out.push("Ministro");const f=c.funcoes||{};FUNCOES.forEach(x=>{if(nomeNaLista(f[x[0]],m.nome)) out.push(x[1]);});return out;}
 function qtdMusicas(c){return (c.musicas||[]).filter(x=>x&&x.titulo).length;}
 function porData(a,b){return (a.data+(a.hora||"")).localeCompare(b.data+(b.hora||""));}
+function sufixoConv(m){return m&&m.convidado?" (convidado)":"";}
 function nomeMinistroDb(db,id){const m=(db.membros||[]).find(x=>x.id===id);return m?m.nome:"a definir";}
 function emailBase(titulo,corpo,link,nomeMin){
   return '<div style="font-family:Arial,Helvetica,sans-serif;background:#f1f4fa;padding:24px 12px">'+
@@ -729,7 +731,7 @@ function emailEscala(db,m,chave,link,nomeMin){
   (db.cultos||[]).filter(c=>String(c.data).startsWith(pref)).sort(porData).forEach(c=>{
     const p=papeisDe(c,m); if(!p.length) return;
     itens.push(linhaEmail(escH(dataBR(c.data))+(c.hora?' · '+escH(c.hora):'')+' — '+escH(c.titulo),
-      'Você: <strong>'+escH(p.join(", "))+'</strong>'+(p.indexOf("Ministro")<0?' · Ministro: '+escH(nomeMinistroDb(db,c.ministroId)):'')+(c.ensaio?'<br>Ensaio às <strong>'+escH(c.ensaio)+'</strong>':'')));
+      'Você: <strong>'+escH(p.join(", "))+'</strong>'+(p.indexOf("Ministro")<0?' · Ministro: '+escH(nomeMinistroDb(db,c.ministroId)+sufixoConv((db.membros||[]).find(x=>x.id===c.ministroId))):'')+(c.ensaio?'<br>Ensaio às <strong>'+escH(c.ensaio)+'</strong>':'')));
   });
   (db.limpeza||[]).filter(x=>String(x.data).startsWith(pref)&&nomeNaLista(x.responsaveis,m.nome)).sort(porData).forEach(x=>
     itens.push(linhaEmail(escH(dataBR(x.data))+' — Escala de limpeza','Com '+escH(x.responsaveis))));
@@ -1713,7 +1715,7 @@ function cardCulto(c){
     '<span class="card-top"><span class="tag-data">'+pad(d.getDate())+'/'+pad(d.getMonth()+1)+'</span>'+(c.hora?'<span class="hora">'+esc(c.hora)+'</span>':'')+
       (c.rascunhoLider?'<span class="tag-rasc">Rascunho</span>':'')+
       (alertas.length&&futuro?'<span class="badge-alerta">'+ICO_ALERTA+alertas.length+(alertas.length>1?' alertas':' alerta')+'</span>':'')+dots(c.dresscode)+'</span>'+
-    '<span class="min-dest"><span class="av-wrap grande'+(m&&futuro&&recusou(c,m.id)?' recusou':'')+(m&&indispDe(m.id,c.data)?' anel-indisp':'')+'">'+avatar(m)+(futuro?selo(c,m):'')+'</span>'+'<span class="min-info"><span class="min-rot">Ministro</span><span class="min-nm">'+esc(m?m.nome:"A definir")+'</span><span class="min-tit">'+esc(c.titulo)+'</span>'+tagEnsaio(c)+tagTroca(c,m)+tagPedido(c,m)+'</span></span>'+
+    '<span class="min-dest"><span class="av-wrap grande'+(m&&futuro&&recusou(c,m.id)?' recusou':'')+(m&&indispDe(m.id,c.data)?' anel-indisp':'')+'">'+avatar(m)+(futuro?selo(c,m):'')+'</span>'+'<span class="min-info"><span class="min-rot'+(m&&m.convidado?' conv':'')+'">'+(m&&m.convidado?'Convidado':'Ministro')+'</span><span class="min-nm">'+esc(m?m.nome:"A definir")+'</span><span class="min-tit">'+esc(c.titulo)+'</span>'+tagEnsaio(c)+tagTroca(c,m)+tagPedido(c,m)+'</span></span>'+
     grade+
     avisoCard(c)+
     '<span class="card-rep">'+pill(preenchidas(c))+(c.data<=hojeStr()&&!ehMinConvidado()?fbPill(c):'')+(futuro?pillPresenca(c):'')+'</span>'+
@@ -1821,7 +1823,7 @@ function viewAgenda(){
       if(!passou&&indispDe(eu.id,c.data)) avisos.push('Você marcou este dia como indisponível');
       return '<div class="ag-bloco'+(passou?' passado':'')+(recusou(c,eu.id)&&!passou?' recusou':'')+'"><button class="ag-item" data-act="abrir" data-id="'+esc(c.id)+'">'+dia+'<span class="ag-info"><span class="ag-tipo">Culto · '+diaSemana(d)+(c.hora?' · '+esc(c.hora):'')+'</span>'+(c.ensaio?'<span class="ag-ensaio">'+ICO_ENSAIO+'Ensaio às '+esc(c.ensaio)+'</span>':'')+
         '<span class="ag-t">'+esc(c.titulo)+'</span><span class="papeis">'+it.papeis.map(p=>'<span class="papel'+(p==="Ministro"?' min':'')+'">'+esc(p)+'</span>').join("")+'</span>'+tagTroca(c,eu)+
-        (c.ministroId!==eu.id?'<span class="ag-meta">Ministro: '+esc(nomeMinistro(c.ministroId))+'</span>':'')+
+        (c.ministroId!==eu.id?'<span class="ag-meta">Ministro: '+esc(nomeMinistro(c.ministroId)+sufixoConv(membro(c.ministroId)))+'</span>':'')+
         avisos.map(a=>'<span class="ag-acao">'+a+'</span>').join("")+'</span></button>'+(passou?'':botoesPresenca("culto",c.id,presencaDe(c,eu.id)))+'</div>';
     }
     return '<div class="ag-bloco'+(passou?' passado':'')+(recusou(it.x,eu.id)&&!passou?' recusou':'')+'"><div class="ag-item">'+dia+'<span class="ag-info"><span class="ag-tipo">Limpeza · '+diaSemana(d)+'</span><span class="ag-t">Escala de limpeza</span>'+
@@ -2139,7 +2141,7 @@ function abrirCulto(id){
     secAlertas(c)+
     '<div class="det-head">'+avatar(m)+'<div><div class="eyebrow">'+SEM_L[d.getDay()]+', '+d.getDate()+' de '+MESES[d.getMonth()].toLowerCase()+(c.hora?' · '+esc(c.hora):'')+'</div>'+
       (c.ensaio?'<div class="det-ensaio">'+ICO_ENSAIO+'Ensaio às <strong>'+esc(c.ensaio)+'</strong>, na igreja</div>':'')+
-      '<h2 class="sh-title" id="sheetTitulo">'+esc(c.titulo)+'</h2><div class="cm">Ministro: <strong>'+esc(nomeMinistro(c.ministroId))+'</strong></div></div></div>'+
+      '<h2 class="sh-title" id="sheetTitulo">'+esc(c.titulo)+'</h2><div class="cm">Ministro: <strong>'+esc(nomeMinistro(c.ministroId))+'</strong>'+(m&&m.convidado?' <span class="pt-conv">Convidado</span>':'')+'</div></div></div>'+
     ((dc.length||podeDresscode())?'<div class="sec"><div class="sec-h"><h3>Dresscode</h3>'+(podeDresscode()?'<button type="button" class="btn ghost sm" data-act="dresscode" data-id="'+esc(c.id)+'">'+(dc.length?'Editar':'Definir')+'</button>':'')+'</div>'+
       (dc.length?'<div class="dc-list">'+dc.map(h=>'<span class="dc-item"><span class="dot" style="background:'+h+'"></span>'+esc(nomeCor(h))+'</span>').join("")+'</div>':'<p class="nd" style="margin:0">Ainda sem dresscode.</p>')+'</div>':'')+
     '<div class="sec"><h3>Equipe</h3>'+(temF||(c.vagas||[]).length?'<dl class="facts">'+FUNCOES.map(x=>'<div><dt>'+x[1]+'</dt><dd>'+(f[x[0]]?esc(f[x[0]]):(c.vagas||[]).some(v=>v.funcao===x[1])?'<span class="vago-txt">Sem músico neste culto</span>':'<span class="nd">–</span>')+'</dd></div>').join("")+'</dl>'
@@ -2673,7 +2675,7 @@ async function telaMembros(editId){
 /* ================= Copiar para WhatsApp ================= */
 function textoCulto(c){
   const d=parseData(c.data), f=c.funcoes||{}, dc=normalizarDresscode(c.dresscode);
-  const linhas=["*"+c.titulo+"* — "+pad(d.getDate())+"/"+pad(d.getMonth()+1)+" ("+diaSemana(d)+")"+(c.hora?" · "+c.hora:"")].concat(c.ensaio?["Ensaio às "+c.ensaio]:[]).concat(["Ministro: "+nomeMinistro(c.ministroId)]);
+  const linhas=["*"+c.titulo+"* — "+pad(d.getDate())+"/"+pad(d.getMonth()+1)+" ("+diaSemana(d)+")"+(c.hora?" · "+c.hora:"")].concat(c.ensaio?["Ensaio às "+c.ensaio]:[]).concat(["Ministro: "+nomeMinistro(c.ministroId)+sufixoConv(membro(c.ministroId))]);
   if(dc.length) linhas.push("Dresscode: "+dc.map(nomeCor).join(", "));
   const eq=FUNCOES.filter(x=>f[x[0]]).map(x=>x[1]+": "+f[x[0]]).concat((c.vagas||[]).map(v=>v.funcao+": sem músico neste culto"));
   if(eq.length) linhas.push("",...eq);
