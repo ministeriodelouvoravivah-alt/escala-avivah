@@ -601,7 +601,7 @@ const CONFIG = {
   API_URL: "https://script.google.com/macros/s/AKfycbxrhX4edbA7aVQrjiIY4e7g8OeeX_7A9HvKmPRTUlxskJDYWYRQ8M6rKq8xc8HBBHF8/exec",
   NOME: "Ministério Avivah"
 };
-const VERSAO_APP = "2026.11.10-3"; // muda a cada versão enviada; não precisa editar
+const VERSAO_APP = "2026.11.10-4"; // muda a cada versão enviada; não precisa editar
 /* ======================================================== */
 
 const MESES=["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
@@ -1486,7 +1486,7 @@ function pill(n){
 function fbPill(c){return c.feedback?'<span class="pill fb">Feedback registrado</span>':'<span class="pill neutral">Feedback pendente</span>';}
 function cultosDoMes(){
   const pref=S.ano+"-"+pad(S.mes+1)+"-";
-  return S.cultos.filter(c=>String(c.data).startsWith(pref)).sort((a,b)=>(a.data+(a.hora||"")).localeCompare(b.data+(b.hora||"")));
+  return S.cultos.filter(c=>String(c.data).startsWith(pref)&&(!ehMinConvidado()||papeisNoCulto(c,S.eu).length>0)).sort((a,b)=>(a.data+(a.hora||"")).localeCompare(b.data+(b.hora||"")));
 }
 function limpezaDoMes(){
   const pref=S.ano+"-"+pad(S.mes+1)+"-";
@@ -1505,8 +1505,8 @@ const LISTA_FUNCAO={backing:"cantores",guitarra:"musicos",bateria:"musicos",tecl
 function render(){
   $("#mesLabel").innerHTML=esc(MESES[S.mes])+(S.ano!==agora.getFullYear()?' <small>'+S.ano+'</small>':'');
   if(S.aba==="agenda"&&!S.eu) S.aba="escala";
-  const soAgenda=ehMinConvidado(); if(soAgenda) S.aba="agenda";
-  ["escala","repertorio","limpeza","eventos"].forEach(a=>{$("#tab-"+a).hidden=soAgenda;});
+  const soMeu=ehMinConvidado(); if(soMeu&&S.aba!=="agenda"&&S.aba!=="escala") S.aba="agenda";
+  ["repertorio","limpeza","eventos"].forEach(a=>{$("#tab-"+a).hidden=soMeu;});
   if(S.aba==="ausencias"&&!ehLider()) S.aba="escala";
   $("#tab-ausencias").hidden=!ehLider();
   $("#tab-agenda").hidden=!S.eu;
@@ -1528,7 +1528,7 @@ function render(){
   if(S.aba==="eventos"){el.innerHTML=viewEventos();return;}
   const lista=cultosDoMes();
   if(!lista.length){
-    el.innerHTML='<div class="vazio"><p class="vazio-t">Nenhum culto escalado em '+MESES[S.mes].toLowerCase()+'</p><p>'+(ehLider()?'Toque em “Novo culto” para lançar a escala.':'A escala deste mês ainda não foi lançada.')+'</p></div>';
+    el.innerHTML='<div class="vazio"><p class="vazio-t">Nenhum culto escalado em '+MESES[S.mes].toLowerCase()+'</p><p>'+(ehMinConvidado()?'Você não está escalado(a) neste mês. Use as setas para ver o mês do seu culto.':ehLider()?'Toque em “Novo culto” para lançar a escala.':'A escala deste mês ainda não foi lançada.')+'</p></div>';
     return;
   }
   el.innerHTML=S.aba==="escala"?(ehLider()?barraAviso():infoRascunho(lista))+'<div class="grade">'+lista.map(cardCulto).join("")+'</div>':viewRepertorios(lista);
