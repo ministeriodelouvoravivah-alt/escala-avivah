@@ -267,6 +267,7 @@ button.mini{background:none;border:0;padding:0;font-family:inherit;cursor:pointe
 .so-conv{display:none}
 .modo-conv .so-conv{display:block}
 .modo-conv .so-membro{display:none}
+.lbl .so-conv{display:none}.modo-conv .lbl .so-conv{display:inline}
 .min-list .acesso{display:block;color:var(--muted);font-size:12px;margin-top:2px}
 .min-list .acesso.on{color:var(--ok)}
 .badge.mus{background:var(--ok-soft);color:var(--ok)}
@@ -551,7 +552,7 @@ button.aus-item:hover{background:var(--surface-2)}
 
 <div class="app">
   <main id="conteudo"><p class="vazio">Carregando a escala…</p></main>
-  <div class="demo" id="demoBanner" hidden style="margin-top:18px"><strong>Modo demonstração.</strong> Os dados ficam salvos só neste aparelho. Contas de teste (senha <code>1234</code>): <code>lider</code> (líder) · <code>lorena</code> (ministra) · <code>daniel</code> (feedback em 11/10) · <code>samuel</code> (ministro convidado). A conta <code>lider</code> usa a senha <code>admin123</code>.</div>
+  <div class="demo" id="demoBanner" hidden style="margin-top:18px"><strong>Modo demonstração.</strong> Os dados ficam salvos só neste aparelho. Contas de teste (senha <code>1234</code>): <code>lider</code> (líder) · <code>lorena</code> (ministra) · <code>daniel</code> (feedback em 11/10) · <code>samuel</code> (convidado). A conta <code>lider</code> usa a senha <code>admin123</code>.</div>
 </div>
 
 <button class="fab" id="fab" data-act="novo" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg><span id="fabTxt">Novo culto</span></button>
@@ -600,7 +601,7 @@ const CONFIG = {
   API_URL: "https://script.google.com/macros/s/AKfycbxrhX4edbA7aVQrjiIY4e7g8OeeX_7A9HvKmPRTUlxskJDYWYRQ8M6rKq8xc8HBBHF8/exec",
   NOME: "Ministério Avivah"
 };
-const VERSAO_APP = "2026.11.10-2"; // muda a cada versão enviada; não precisa editar
+const VERSAO_APP = "2026.11.10-3"; // muda a cada versão enviada; não precisa editar
 /* ======================================================== */
 
 const MESES=["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
@@ -664,7 +665,7 @@ function normalizarFuncoes(o){
 function normalizarDresscode(l){
   return (Array.isArray(l)?l:[]).map(x=>String(x).trim().toLowerCase()).filter(x=>HEX_RE.test(x)).filter((x,i,a)=>a.indexOf(x)===i).slice(0,6);
 }
-const TABELAS_POR_ACAO={deleteConvidado:["Convidados"],responderPedido:["Cultos","Limpeza","Convidados"],publicarMes:["Avisos"],despublicarMes:["Avisos"],salvarDresscode:["Cultos"],salvarIndisp:["Membros"],responderPresenca:["Cultos","Limpeza","Convidados"],salvarEmail:["Membros"],avisarEquipe:["Avisos"],trocarSenha:["Membros"],saveMembro:["Membros"],deleteMembro:["Membros"],saveCulto:["Cultos","Convidados"],deleteCulto:["Cultos"],
+const TABELAS_POR_ACAO={deleteConvidado:["Convidados","Membros"],responderPedido:["Cultos","Limpeza","Convidados","Membros"],publicarMes:["Avisos"],despublicarMes:["Avisos"],salvarDresscode:["Cultos"],salvarIndisp:["Membros"],responderPresenca:["Cultos","Limpeza","Convidados"],salvarEmail:["Membros"],avisarEquipe:["Avisos"],trocarSenha:["Membros"],saveMembro:["Membros"],deleteMembro:["Membros"],saveCulto:["Cultos","Convidados","Membros"],deleteCulto:["Cultos"],
   saveRepertorio:["Cultos"],saveFeedback:["Cultos"],saveLimpeza:["Limpeza"],deleteLimpeza:["Limpeza"],saveEvento:["Eventos"],deleteEvento:["Eventos"]};
 function fotoVersao(f){f=String(f||"");return f?f.length.toString(36)+f.slice(-12):"";}
 function mesPublicado(db,data){const mes=String(data).slice(0,7);return (db.avisos||[]).some(a=>a.mes===mes&&a.publicado);}
@@ -679,11 +680,12 @@ function usuarioDoToken(db,token,env){
   const t=String(token), i=t.lastIndexOf("."), m=(db.membros||[]).find(x=>x.usuario===t.slice(0,i));
   return m&&(m.usuario+"."+env.hash("tok|"+m.usuario+"|"+m.senhaHash))===t?m:null;
 }
-/* Ministro convidado: o acesso vale enquanto ele estiver escalado e encerra 2 dias depois do último culto dele. */
+/* Convidados (ministros, backing ou músicos de fora): o acesso vale enquanto a pessoa estiver escalada
+   e encerra 2 dias depois do último culto dela. */
 const DIAS_ACESSO_CONVIDADO=2;
 function acessoConvidado(db,m,hoje){
   if(!m||!m.convidado) return {ativo:true,ate:""};
-  const ds=(db.cultos||[]).filter(c=>c.ministroId===m.id).map(c=>String(c.data)).sort();
+  const ds=(db.cultos||[]).filter(c=>papeisDe(c,m).length>0).map(c=>String(c.data)).sort();
   const ate=ds.length?somarDias(ds[ds.length-1],DIAS_ACESSO_CONVIDADO):"";
   return {ativo:!!ate&&hoje<=ate,ate:ate};
 }
@@ -692,7 +694,7 @@ function dadosPublicos(db){
   return {membros:(db.membros||[]).map(m=>({id:m.id,nome:m.nome,ministro:!!m.ministro,convidado:!!m.convidado,lider:!!m.lider,cantor:!!m.cantor,musico:!!m.musico,fotoV:fotoVersao(m.foto)})),
     cultos:(db.cultos||[]).map(c=>mesPublicado(db,c.data)?Object.assign({},c,{presencas:semMotivo(c.presencas),substituicoes:subsPublicas(c.substituicoes),pedidos:pedidosPublicos(c.pedidos),vagas:(c.vagas||[]).map(v=>({funcao:v.funcao,deNome:v.deNome,em:v.em}))}):redigirCulto(c)),
     limpeza:(db.limpeza||[]).map(x=>mesPublicado(db,x.data)?Object.assign({},x,{presencas:semMotivo(x.presencas),substituicoes:subsPublicas(x.substituicoes),pedidos:pedidosPublicos(x.pedidos)}):redigirLimpeza(x)),
-    eventos:db.eventos||[],convidados:(db.convidados||[]).map(c=>({id:c.id,nome:c.nome})),avisos:(db.avisos||[]).map(a=>({mes:a.mes,enviadoEm:a.enviadoEm,enviadoPor:a.enviadoPor,publicado:!!a.publicado}))};
+    eventos:db.eventos||[],convidados:listaConvidados(db),avisos:(db.avisos||[]).map(a=>({mes:a.mes,enviadoEm:a.enviadoEm,enviadoPor:a.enviadoPor,publicado:!!a.publicado}))};
 }
 function fotosDe(db){const o={};(db.membros||[]).forEach(m=>{if(m.foto) o[m.id]=m.foto;});return o;}
 /* ----- E-mails (montados aqui e enviados pelo servidor) ----- */
@@ -787,7 +789,7 @@ function emailRecusa(m,alvo,tipo,funcao,motivo,link,nomeMin,sub){
   const corpo='<p style="margin:0 0 8px"><strong>'+escH(quando)+'</strong><br>'+escH(tipo==="limpeza"?"Escala de limpeza":alvo.titulo)+' · Função: '+escH(funcao)+'</p>'+
     (motivo?'<p style="margin:0 0 4px;color:#59627d">Motivo: '+escH(motivo)+'</p>':'')+
     (sub?'<p style="margin:12px 0 0;background:#e0f0fb;padding:10px 12px;border-radius:10px">Substituto indicado: <strong>'+escH(sub.nome)+'</strong>. A troca vale assim que '+escH(primeiro(sub.nome))+' aceitar; você recebe outro e-mail com a resposta.</p>'
-      :m.convidado?'<p style="margin:12px 0 0"><strong>'+escH(m.nome)+'</strong> é ministro(a) convidado(a). Edite o culto no app e escale outro ministro.</p>'
+      :m.convidado?'<p style="margin:12px 0 0"><strong>'+escH(m.nome)+'</strong> é convidado(a). Edite o culto no app e escale outra pessoa.</p>'
       :'<p style="margin:12px 0 0">Abra o app para escolher quem vai substituir.</p>');
   return {assunto:nome+" não vai conseguir servir em "+dataBR(alvo.data)+(sub?" · pediu a "+primeiro(sub.nome):""),html:emailBase(m.nome+" não vai conseguir servir",corpo,link,nomeMin)};
 }
@@ -801,7 +803,7 @@ function cancelarPedidos(alvo,deId){(alvo.pedidos||[]).forEach(p=>{if(p.de===deI
 function validarSubstituto(db,alvo,tipo,de,sub){
   if(!sub) throw new Error("Escolha quem vai te substituir.");
   if(sub.id===de.id) throw new Error("Escolha outra pessoa para te substituir.");
-  if(sub.convidado) throw new Error("Ministros convidados não entram como substitutos. Escolha alguém da equipe.");
+  if(sub.convidado) throw new Error("Para indicar um convidado, escolha o nome dele no grupo Convidados.");
   const jaEsc=tipo==="culto"?papeisDe(alvo,sub).length>0:nomeNaLista(alvo.responsaveis,sub.nome);
   if(jaEsc) throw new Error(sub.nome+" já está escalado(a) neste "+(tipo==="culto"?"culto":"dia")+". Escolha outra pessoa.");
   if((sub.indisp||[]).some(i=>i.data===alvo.data)) throw new Error(sub.nome+" marcou que não pode servir neste dia. Escolha outra pessoa.");
@@ -827,16 +829,37 @@ function emailVagoDecidido(dest,alvo,funcao,deNome,link,nomeMin,papel){
   const corpo='<p style="margin:0 0 8px">'+txt+'</p>'+tabelaEmail([linhaEmail(escH(quando)+' — '+escH(alvo.titulo),'Sem músico: <strong>'+escH(funcao)+'</strong>')]);
   return {assunto:"Culto de "+dataBR(alvo.data)+" segue sem "+funcao.toLowerCase(),html:emailBase("Culto sem "+funcao.toLowerCase(),corpo,link,nomeMin)};
 }
+function listaConvidados(db){
+  const out=(db.membros||[]).filter(m=>m.convidado).map(m=>({id:m.id,nome:m.nome}));
+  (db.convidados||[]).forEach(c=>{if(!out.some(x=>norm(x.nome)===norm(c.nome))) out.push({id:c.id,nome:c.nome});});
+  return out;
+}
+function usuarioLivre(db,nome){
+  const base=norm(nome).split(/\s+/).filter(Boolean).join(".").replace(/[^a-z0-9._-]/g,"").replace(/\.{2,}/g,".").replace(/^\.|\.$/g,"")||"convidado";
+  let u=base,i=2; while((db.membros||[]).some(m=>m.usuario===u)) u=base+(i++);
+  return u;
+}
+/* Os convidados antigos (só o nome) viram cadastros de convidado, sem senha. */
+function migrarConvidados(db){
+  let n=0;
+  (db.convidados||[]).forEach(c=>{if(!(db.membros||[]).some(m=>norm(m.nome)===norm(c.nome))){guardarConvidado(db,c.nome,{});n++;}});
+  db.convidados=[];
+  return n;
+}
 function nomeConvidadoValido(db,nome){
   nome=String(nome||"").replace(/\s+/g," ").trim().slice(0,60);
   if(nome.length<2) throw new Error("Digite o nome do convidado.");
   if(/,|\se\s/i.test(" "+nome+" ")&&/,/.test(nome)) throw new Error("Digite um nome por vez.");
-  if((db.membros||[]).some(m=>norm(m.nome)===norm(nome))) throw new Error(nome+" já é membro da equipe. Escolha na lista de membros.");
+  if((db.membros||[]).some(m=>!m.convidado&&norm(m.nome)===norm(nome))) throw new Error(nome+" já é membro da equipe. Escolha na lista de membros.");
   return nome;
 }
-function guardarConvidado(db,nome){
-  db.convidados=db.convidados||[];
-  if(!db.convidados.some(c=>norm(c.nome)===norm(nome))) db.convidados.push({id:uid(),nome:nome,criadoEm:new Date().toISOString()});
+function guardarConvidado(db,nome,funcoes){
+  db.membros=db.membros||[];
+  const f=funcoes||{}, canta=nomeNaLista(f.backing,nome), toca=["guitarra","bateria","teclado","baixo","violao"].some(k=>nomeNaLista(f[k],nome));
+  const ja=db.membros.find(m=>norm(m.nome)===norm(nome));
+  if(ja){ if(ja.convidado){ if(canta) ja.cantor=true; if(toca) ja.musico=true; } return ja; }
+  const m={id:uid(),nome:nome,usuario:usuarioLivre(db,nome),senhaHash:"",foto:"",email:"",convidado:true,ministro:false,cantor:canta,musico:toca,lider:false,permDresscode:false,indisp:[]};
+  db.membros.push(m); return m;
 }
 function emailPedidoConvidado(de,nome,alvo,tipo,funcao,motivo,link,pid,nomeMin){
   const quando=dataBR(alvo.data)+(alvo.hora?' · '+alvo.hora:'');
@@ -933,7 +956,7 @@ function processar(db,req,env){
   db.limpeza=db.limpeza||[]; db.membros=db.membros||[]; db.eventos=db.eventos||[];
   const hashSenha=s=>env.hash("senha|"+s);
   const tokenDe=m=>m.usuario+"."+env.hash("tok|"+m.usuario+"|"+m.senhaHash);
-  const publico=m=>({id:m.id,nome:m.nome,usuario:m.usuario,email:m.email||"",indisp:m.indisp||[],permDresscode:!!m.permDresscode,lider:!!m.lider,ministro:!!m.ministro,cantor:!!m.cantor,musico:!!m.musico,convidado:!!m.convidado,foto:m.foto||""});
+  const publico=m=>({id:m.id,nome:m.nome,usuario:m.usuario,email:m.email||"",indisp:m.indisp||[],permDresscode:!!m.permDresscode,lider:!!m.lider,ministro:!!m.ministro,cantor:!!m.cantor,musico:!!m.musico,convidado:!!m.convidado,temSenha:!!m.senhaHash,foto:m.foto||""});
   let eu=null;
   if(req.token){
     const t=String(req.token), i=t.lastIndexOf(".");
@@ -949,7 +972,7 @@ function processar(db,req,env){
     case "login":{
       const m=db.membros.find(x=>x.usuario===norm(req.usuario));
       if(!m||!req.senha||hashSenha(String(req.senha))!==m.senhaHash) throw new Error("Usuário ou senha incorretos.");
-      if(m.convidado&&!acessoConvidado(db,m,env.hoje()).ativo) throw new Error("Seu acesso de ministro convidado fica liberado enquanto você estiver escalado para ministrar. Fale com quem te convidou.");
+      if(m.convidado&&!acessoConvidado(db,m,env.hoje()).ativo) throw new Error("Seu acesso de convidado fica liberado enquanto você estiver escalado(a) em um culto. Fale com quem te convidou.");
       return {token:tokenDe(m),eu:publico(m)};
     }
     case "me": exigirLogin(); return {eu:publico(eu)};
@@ -1087,7 +1110,7 @@ function processar(db,req,env){
       if(aceitar&&ped.convidado){
         const nomeC=nomeConvidadoValido(db,ped.paraNome);
         aplicarTroca(db,alvo,tipo,de,{convidado:true,nome:nomeC,id:""},ped.funcoes,ped.motivo);
-        guardarConvidado(db,nomeC);
+        guardarConvidado(db,nomeC,alvo.funcoes);
         ped.status="aceito"; ped.aprovadoPor=eu.nome;
       } else if(aceitar){
         validarSubstituto(db,alvo,tipo,de,eu);
@@ -1138,9 +1161,11 @@ function processar(db,req,env){
     case "saveMembro":{
       exigirLider();
       const m=req.membro||{}, nome=String(m.nome||"").trim(), senha=String(m.senha||"");
-      const usuario=norm(m.usuario).replace(/\s+/g,".").replace(/[^a-z0-9._-]/g,"");
+      let usuario=norm(m.usuario).replace(/\s+/g,".").replace(/[^a-z0-9._-]/g,"");
       if(!nome) throw new Error("Informe o nome.");
+      if(!usuario&&m.convidado) usuario=usuarioLivre(db,nome);
       if(!usuario) throw new Error("Informe o usuário (só letras, números e ponto).");
+      if(db.membros.some(x=>norm(x.nome)===norm(nome)&&x.id!==m.id)) throw new Error("Já existe um cadastro com o nome “"+nome+"”. Use um nome diferente.");
       const email=String(m.email||"").trim().toLowerCase();
       if(email&&!EMAIL_RE.test(email)) throw new Error("Esse e-mail não parece válido. Confira e tente de novo.");
       if(db.membros.some(x=>x.usuario===usuario&&x.id!==m.id)) throw new Error("O usuário “"+usuario+"” já existe. Escolha outro.");
@@ -1156,13 +1181,13 @@ function processar(db,req,env){
         alvo=db.membros.find(y=>y.id===m.id); if(!alvo) throw new Error("Membro não encontrado.");
         if(senha&&senha.length<4) throw new Error("A senha precisa ter pelo menos 4 caracteres.");
       } else {
-        if(senha.length<4) throw new Error("Defina uma senha com pelo menos 4 caracteres.");
-        alvo={id:uid(),foto:""}; db.membros.push(alvo);
+        if(m.convidado?(senha&&senha.length<4):senha.length<4) throw new Error("Defina uma senha com pelo menos 4 caracteres.");
+        alvo={id:uid(),foto:"",senhaHash:""}; db.membros.push(alvo);
       }
       alvo.nome=nome; alvo.usuario=usuario; alvo.email=email; alvo.convidado=!!m.convidado;
       if(alvo.convidado){
-        if(alvo.id===eu.id) throw new Error("Sua própria conta não pode virar ministro convidado.");
-        alvo.ministro=true; alvo.lider=false; alvo.cantor=false; alvo.musico=false; alvo.permDresscode=false; alvo.indisp=[];
+        if(alvo.id===eu.id) throw new Error("Sua própria conta não pode virar convidado.");
+        alvo.ministro=!!m.ministro; alvo.cantor=!!m.cantor; alvo.musico=!!m.musico; alvo.lider=false; alvo.permDresscode=false; alvo.indisp=[];
       } else {alvo.ministro=!!m.ministro; alvo.lider=!!m.lider; alvo.cantor=!!m.cantor; alvo.musico=!!m.musico; alvo.permDresscode=!!m.permDresscode;}
       if(senha) alvo.senhaHash=hashSenha(senha);
       if(foto!==null) alvo.foto=foto;
@@ -1182,7 +1207,7 @@ function processar(db,req,env){
       if(!/^\d{4}-\d{2}-\d{2}$/.test(c.data||"")) throw new Error("Informe a data do culto.");
       if(!String(c.titulo||"").trim()) throw new Error("Informe o nome do culto.");
       const novosConv=(Array.isArray(c.convidadosNovos)?c.convidadosNovos:[]).map(n=>nomeConvidadoValido(db,n));
-      novosConv.forEach(n=>guardarConvidado(db,n));
+      novosConv.forEach(n=>guardarConvidado(db,n,c.funcoes));
       const id=c.id||uid();
       const i=db.cultos.findIndex(x=>x.id===id);
       const atual=i>=0?db.cultos[i]:{musicas:[],feedback:null};
@@ -1198,7 +1223,7 @@ function processar(db,req,env){
       if(i>=0) db.cultos[i]=novo; else db.cultos.push(novo);
       return {culto:novo};
     }
-    case "deleteConvidado": exigirLider(); db.convidados=(db.convidados||[]).filter(x=>x.id!==req.id); return {};
+    case "deleteConvidado": exigirLider(); db.convidados=(db.convidados||[]).filter(x=>x.id!==req.id); db.membros=db.membros.filter(x=>!(x.id===req.id&&x.convidado)); return {};
     case "deleteCulto": exigirLider(); db.cultos=db.cultos.filter(x=>x.id!==req.id); return {};
     case "saveRepertorio":{
       exigirLogin();
@@ -1257,7 +1282,7 @@ function hashDemo(t){let h1=0xdeadbeef,h2=0x41c6ce57;for(let i=0;i<t.length;i++)
 const ENVIOS_DEMO=[];
 const ENV_DEMO={hash:t=>hashDemo("demo-avivah|"+t),enviar:(para,assunto)=>{ENVIOS_DEMO.push({para:para,assunto:assunto});},
   hoje:()=>hojeStr(),link:()=>String(location.href).split("#")[0].split("?")[0],nomeMin:"Ministério Avivah"};
-const DEMO_KEY="louvor_demo_v16";
+const DEMO_KEY="louvor_demo_v17";
 let demoMem=null;
 function seed(){
   const now=new Date(), y=now.getFullYear(), m=now.getMonth();
@@ -1330,7 +1355,8 @@ function seed(){
   membros.push({id:"g1",nome:"Samuel Rocha",usuario:"samuel",lider:false,ministro:true,cantor:false,musico:false,convidado:true,senhaHash:h("1234"),foto:"",email:"samuel@exemplo.com"});
   const hj=hojeStr(), prox=cultos.filter(c=>c.data>=hj&&String(c.data).startsWith(y+"-"+pad(m+1))&&!(c.pedidos||[]).length)[0];
   if(prox) prox.ministroId="g1";
-  const convidados=[{id:"cv1",nome:"Lucas",criadoEm:""},{id:"cv2",nome:"André Baterista",criadoEm:""}];
+  membros.push({id:"cv1",nome:"Lucas",usuario:"lucas",senhaHash:"",foto:"",convidado:true,musico:true},{id:"cv2",nome:"André Baterista",usuario:"andre.baterista",senhaHash:"",foto:"",convidado:true,musico:true});
+  const convidados=[];
   const avisos=[{mes:y+"-"+pad(m+1),enviadoEm:"",enviadoDia:"",enviadoPor:"",lembrete3:"",lembrete6:"",publicado:true}];
   return JSON.parse(JSON.stringify({membros:membros,cultos:cultos,limpeza:limpeza,eventos:eventos,avisos:avisos,convidados:convidados}));
 }
@@ -1444,7 +1470,7 @@ function avatar(m,extra){
   if(m&&m.foto&&/^data:image\//.test(m.foto)) return '<img class="'+cls+'" src="'+esc(m.foto)+'" alt="">';
   return '<span class="'+cls+' ini" aria-hidden="true">'+esc(m?iniciais(m.nome):"?")+'</span>';
 }
-function badges(m){if(m.convidado) return '<span class="badges"><span class="badge conv">Ministro convidado</span></span>';
+function badges(m){if(m.convidado) return '<span class="badges"><span class="badge conv">Convidado</span>'+(m.ministro?'<span class="badge min">Ministro</span>':'')+(m.cantor?'<span class="badge cant">Backing</span>':'')+(m.musico?'<span class="badge mus">Músico</span>':'')+'</span>';
   return '<span class="badges">'+(m.lider?'<span class="badge lider">Líder</span>':'')+(m.ministro?'<span class="badge min">Ministro</span>':'')+(m.cantor?'<span class="badge cant">Cantor</span>':'')+(m.musico?'<span class="badge mus">Músico</span>':'')+(m.permDresscode&&!m.lider?'<span class="badge dc">Dresscode</span>':'')+'</span>';}
 function dots(lista){
   const l=normalizarDresscode(lista); if(!l.length) return "";
@@ -1479,6 +1505,8 @@ const LISTA_FUNCAO={backing:"cantores",guitarra:"musicos",bateria:"musicos",tecl
 function render(){
   $("#mesLabel").innerHTML=esc(MESES[S.mes])+(S.ano!==agora.getFullYear()?' <small>'+S.ano+'</small>':'');
   if(S.aba==="agenda"&&!S.eu) S.aba="escala";
+  const soAgenda=ehMinConvidado(); if(soAgenda) S.aba="agenda";
+  ["escala","repertorio","limpeza","eventos"].forEach(a=>{$("#tab-"+a).hidden=soAgenda;});
   if(S.aba==="ausencias"&&!ehLider()) S.aba="escala";
   $("#tab-ausencias").hidden=!ehLider();
   $("#tab-agenda").hidden=!S.eu;
@@ -1600,7 +1628,7 @@ function abrirPedido(pid){
   abrirSheet('<div class="eyebrow">Pedido de substituição</div><h2 class="sh-title" id="sheetTitulo">'+esc(it.p.deNome)+' precisa de você</h2>'+
     '<p class="lead">'+esc(it.p.deNome)+' não vai conseguir servir e pediu para você ficar no lugar dele(a). A troca só vale quando você aceitar.</p>'+blocoPedido(it));
 }
-function ehConvidado(nome){const n=norm(nome);return !S.membros.some(m=>norm(m.nome)===n)&&S.convidados.some(c=>norm(c.nome)===n);}
+function ehConvidado(nome){const n=norm(nome), m=S.membros.find(x=>norm(x.nome)===n);return m?!!m.convidado:S.convidados.some(c=>norm(c.nome)===n);}
 function subPorNome(obj,nome){const n=norm(nome);return (obj.substituicoes||[]).filter(x=>norm(x.paraNome)===n).slice(-1)[0]||null;}
 function tagTroca(obj,m){const sb=m&&subDe(obj,m.id); return sb?'<span class="pt-troca" title="Substituindo '+esc(sb.deNome)+'">'+ICO_TROCA+'no lugar de '+esc(primeiro(sb.deNome))+'</span>':'';}
 const SELO={ok:['<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round"><path d="M5 12l5 5 9-10"/></svg>',"Confirmado"],
@@ -1676,7 +1704,7 @@ function cardCulto(c){
       if(p.vaga) return '<span class="pessoa-t vaga"><span class="av-p av-vago" aria-hidden="true">—</span><span class="pt-txt"><span class="pt-nome">Sem músico</span><span class="pt-func">'+esc(p.funcao)+'</span><span class="pt-vago">neste culto</span></span></span>';
       const mm=membroPorNome(p.nome), al=alertaDe(p.nome).filter(a=>a.tipo==="indisp"||a.funcoes.indexOf(p.funcao)>=0), cls=al.length?(al[0].tipo==="indisp"?' anel-indisp':' anel-dup'):'';
       const nao=mm&&futuro&&recusou(c,mm.id);
-      const tr=mm?subDe(c,mm.id):subPorNome(c,p.nome), conv=!mm&&ehConvidado(p.nome);
+      const tr=mm?subDe(c,mm.id):subPorNome(c,p.nome), conv=mm?!!mm.convidado:ehConvidado(p.nome);
       return '<span class="pessoa-t"><span class="av-wrap'+cls+(nao?' recusou':'')+(tr?' trocado':'')+'">'+avatarPessoa(p.nome)+(futuro?selo(c,mm):'')+(tr?'<span class="selo-troca" aria-hidden="true">'+ICO_TROCA+'</span>':'')+'</span><span class="pt-txt"><span class="pt-nome">'+esc(p.nome)+'</span><span class="pt-func">'+esc(p.funcao)+'</span>'+(mm?tagTroca(c,mm):(tr?'<span class="pt-troca">'+ICO_TROCA+'no lugar de '+esc(primeiro(tr.deNome))+'</span>':''))+(conv?'<span class="pt-conv">Convidado</span>':'')+tagPedido(c,mm)+
         (al.length?'<span class="pt-alerta '+al[0].tipo+'">'+(al[0].tipo==="indisp"?'Indisponível neste dia':'Em duas funções')+'</span>':'')+'</span></span>';
     }).join("")+'</span>'
@@ -1760,7 +1788,7 @@ function papeisNoCulto(c,eu){
 }
 function irParaCultoDoConvidado(){
   if(!ehMinConvidado()) return;
-  const meus=S.cultos.filter(c=>c.ministroId===S.eu.id).sort(porData), hoje=hojeStr();
+  const meus=S.cultos.filter(c=>papeisNoCulto(c,S.eu).length>0).sort(porData), hoje=hojeStr();
   const alvo=meus.filter(c=>c.data>=hoje)[0]||meus[meus.length-1]; if(!alvo) return;
   const d=parseData(alvo.data); S.ano=d.getFullYear(); S.mes=d.getMonth();
 }
@@ -1776,11 +1804,11 @@ function viewAgenda(){
   const n=itens.length;
   const rascMes=cultosDoMes().length>0&&!mesPublicadoCli(S.ano+"-"+pad(S.mes+1));
   const conv=!!eu.convidado, btnIndisp=conv?'':'<button type="button" class="btn ghost sm" data-act="indisp" style="margin-top:8px">Marcar dias que não posso</button>';
-  if(rascMes&&!ehLider()) return '<div class="ag-head">'+avatar(membro(eu.id)||eu)+'<div><p class="ag-ola">Olá, '+esc(pNome)+'!</p><p class="ag-sub">A equipe de '+mesNome+' ainda está sendo definida. Assim que a escala for publicada, '+(conv?'o culto em que você vai ministrar aparece':'seus compromissos aparecem')+' aqui.</p>'+
+  if(rascMes&&!ehLider()) return '<div class="ag-head">'+avatar(membro(eu.id)||eu)+'<div><p class="ag-ola">Olá, '+esc(pNome)+'!</p><p class="ag-sub">A equipe de '+mesNome+' ainda está sendo definida. Assim que a escala for publicada, '+(conv?'o culto em que você vai servir aparece':'seus compromissos aparecem')+' aqui.</p>'+
     btnIndisp+'</div></div>'+
     (evs.length&&!conv?'<p class="ag-sec">Eventos do ministério '+quando+'</p><div class="ag-list">'+evs.map(linhaEv).join("")+'</div>':'');
-  const sub=conv?(n?'Que alegria ter você ministrando conosco! Aqui está '+(n>1?'os cultos':'o culto')+' em que você vai ministrar '+quando+'. Toque no culto para ver a equipe e lançar o repertório.'
-      :'Você não tem culto para ministrar '+quando+'. Use as setas do mês para ver o próximo.')
+  const sub=conv?(n?'Que alegria ter você com a gente! Aqui está '+(n>1?'os cultos':'o culto')+' em que você vai servir '+quando+'. Toque no culto para ver a equipe'+(itens.some(it=>it.c&&it.c.ministroId===eu.id)?' e lançar o repertório':'')+'.'
+      :'Você não tem culto '+quando+'. Use as setas do mês para ver o próximo.')
     :(rascMes?'<strong>Escala em rascunho.</strong> ':'')+(n?'Você vai servir em <strong>'+n+(n>1?' compromissos':' compromisso')+'</strong> '+quando+'. Confira:'
     :'Você não está na escala '+(esteMes?'deste mês':'de '+mesNome)+'. Aproveite para acompanhar os cultos e os eventos do ministério.');
   const linha=it=>{
@@ -1997,10 +2025,10 @@ function telaConta(){
   const eu=S.eu; if(!eu) return telaLogin();
   const m=membro(eu.id)||eu;
   abrirSheet('<div class="det-head">'+avatar(m)+'<div><div class="eyebrow">Minha conta</div><h2 class="sh-title" id="sheetTitulo">'+esc(eu.nome)+'</h2><div class="cm"><span class="usr">@'+esc(eu.usuario)+'</span>'+badges(eu)+'</div></div></div>'+
-    (eu.convidado?'<div class="sec"><h3>Ministro convidado</h3><p class="hint" style="margin:0">'+textoAcessoConvidado(eu)+'</p></div>':'')+
+    (eu.convidado?'<div class="sec"><h3>Convidado</h3><p class="hint" style="margin:0">'+textoAcessoConvidado(eu)+'</p></div>':'')+
     (eu.convidado?'':'<div class="sec"><h3>Dias em que não posso servir</h3><p class="hint" style="margin:0 0 8px">'+((eu.indisp||[]).filter(i=>i.data>=hojeStr()).length?(eu.indisp||[]).filter(i=>i.data>=hojeStr()).length+' dia(s) marcado(s) daqui pra frente.':'Nenhum dia marcado.')+'</p><button type="button" class="btn ghost" data-act="indisp">Marcar dias</button></div>')+
     '<form id="fEmail" class="form sec"><h3>E-mail para avisos</h3>'+
-    '<p class="hint" style="margin:0">'+(eu.convidado?'Você recebe a escala e os lembretes dos cultos em que vai ministrar.':'Você recebe a escala do mês e um lembrete no dia em que serve.')+'</p>'+
+    '<p class="hint" style="margin:0">'+(eu.convidado?'Você recebe a escala e os lembretes dos cultos em que vai servir.':'Você recebe a escala do mês e um lembrete no dia em que serve.')+'</p>'+
     '<label for="eEmail">Seu e-mail</label><input id="eEmail" type="email" inputmode="email" autocomplete="email" autocapitalize="none" value="'+esc(eu.email||"")+'" placeholder="nome@gmail.com">'+
     '<p class="err" id="errEmail"></p><div class="actions" style="margin-top:8px"><button class="btn ghost" type="submit">Salvar e-mail</button></div></form>'+
     '<form id="fSenha" class="form sec"><h3>Trocar senha</h3>'+
@@ -2055,7 +2083,7 @@ function botoesPresenca(tipo,id,p){
 }
 function convidadosDoCulto(c){
   const f=c.funcoes||{}, out=[];
-  FUNCOES.forEach(x=>String(f[x[0]]||"").split(/\s*,\s*|\s+e\s+/).filter(Boolean).forEach(n=>{if(!membroPorNome(n)&&ehConvidado(n)) out.push({nome:n,funcao:x[1]});}));
+  FUNCOES.forEach(x=>String(f[x[0]]||"").split(/\s*,\s*|\s+e\s+/).filter(Boolean).forEach(n=>{if(ehConvidado(n)) out.push({nome:n,funcao:x[1]});}));
   return out;
 }
 function secPresenca(c){
@@ -2234,7 +2262,7 @@ function opcoesSubstituto(obj,tipo){
 }
 function telaRecusaConvidado(obj){
   abrirSheet('<div class="eyebrow">'+esc(obj.titulo)+' · '+dataCurta(obj.data)+'</div><h2 class="sh-title" id="sheetTitulo">Não vai conseguir?</h2>'+
-    '<p class="lead">Sem problema. Os líderes do ministério serão avisados por e-mail para escalar outro ministro.</p>'+
+    '<p class="lead">Sem problema. Os líderes do ministério serão avisados por e-mail para escalar outra pessoa.</p>'+
     '<form id="fRecusa" class="form" novalidate><label for="recMotivo">Motivo (obrigatório, fica entre você e os líderes)</label><textarea id="recMotivo" required placeholder="Ex.: surgiu um compromisso nesse dia."></textarea><p class="err" id="errRecusa"></p>'+
     '<div class="actions"><button class="btn nao-cheio" type="submit">Avisar os líderes</button><button class="btn ghost" type="button" data-act="fechar">Voltar</button></div></form>');
   $("#fRecusa").onsubmit=async e=>{e.preventDefault();
@@ -2254,7 +2282,7 @@ function telaRecusa(tipo,id){
     '<form id="fRecusa" class="form" novalidate>'+
     '<label for="recSub">Quem vai te substituir (obrigatório)</label><select id="recSub">'+o.html+'</select>'+
     '<input id="recConvNome" placeholder="Nome do convidado" autocomplete="off" hidden>'+
-    '<p class="hint" id="recConvHint" hidden>Como convidados não têm conta no app, os líderes confirmam a troca.</p>'+
+    '<p class="hint" id="recConvHint" hidden>Trocas com convidados são confirmadas pelos líderes.</p>'+
     '<p class="hint" id="recVagoHint" hidden>Os líderes vão decidir se o culto segue sem '+esc(o.meus.filter(f=>INSTRUMENTOS.indexOf(f)>=0).join(", ").toLowerCase())+' ou se escalam outra pessoa. Você continua na escala até lá.</p>'+
     (o.ehMin?'<p class="hint">Como você é o ministro deste culto, só aparecem outros ministros.</p>':'')+
     (o.vazio?'<p class="hint">Não há ninguém disponível para indicar. Fale com um líder.</p>':'')+
@@ -2409,7 +2437,7 @@ function formCulto(c){
   const ministros=S.membros.filter(m=>m.ministro||m.id===c.ministroId).sort((a,b)=>a.nome.localeCompare(b.nome));
   const optM=l=>l.map(m=>'<option value="'+esc(m.id)+'"'+(m.id===c.ministroId?' selected':'')+'>'+esc(m.nome)+'</option>').join("");
   const daCasa=ministros.filter(m=>!m.convidado), deFora=ministros.filter(m=>m.convidado);
-  const opts='<option value="">A definir</option>'+(deFora.length?'<optgroup label="Ministros da equipe">'+optM(daCasa)+'</optgroup><optgroup label="Ministros convidados">'+optM(deFora)+'</optgroup>':optM(daCasa));
+  const opts='<option value="">A definir</option>'+(deFora.length?'<optgroup label="Ministros da equipe">'+optM(daCasa)+'</optgroup><optgroup label="Convidados">'+optM(deFora)+'</optgroup>':optM(daCasa));
   abrirSheet('<div class="eyebrow">Escala</div><h2 class="sh-title" id="sheetTitulo">'+(novo?'Novo culto':'Editar culto')+'</h2>'+
     '<form id="fCulto" class="form">'+
     '<div class="row2" style="grid-template-columns:1fr 1fr"><div><label for="cData">Data</label><input id="cData" type="date" value="'+esc(c.data)+'" required></div><div><label for="cHora">Horário do culto</label><input id="cHora" type="time" value="'+esc(c.hora)+'"></div></div>'+
@@ -2560,15 +2588,16 @@ let membrosCompletos=[], filtroMembros="todos";
 function dataBRcurta(ds){const p=String(ds).split("-");return p[2]+"/"+p[1];}
 function textoAcessoConvidado(m){
   const a=acessoConvidado({cultos:S.cultos},m,hojeStr());
-  if(!a.ate) return "O acesso é liberado quando ele estiver escalado como ministro de um culto.";
+  if(!m.temSenha&&m.temSenha!==undefined) return "Sem acesso ao app. Defina uma senha se ele for usar.";
+  if(!a.ate) return "O acesso é liberado quando estiver escalado(a) em um culto.";
   return a.ativo?"Acesso ativo até "+dataBRcurta(a.ate)+" (2 dias depois do último culto escalado).":"Acesso encerrado em "+dataBRcurta(a.ate)+". Escale num culto para liberar de novo.";
 }
 function telaAcessoConvidado(m,senha){
   const link=linkDoApp()||String(location.href).split("#")[0].split("?")[0];
-  const txt="Olá, "+primeiro(m.nome)+"! Que alegria ter você ministrando conosco no "+CONFIG.NOME+" 💙\n\n"+
-    "No app da escala você vê o culto e a equipe, confirma presença e lança o repertório:\n"+link+"\n\nUsuário: "+m.usuario+"\nSenha: "+senha+"\n\n"+
-    "Seu acesso fica ativo enquanto você estiver escalado(a) para ministrar.";
-  abrirSheet('<div class="eyebrow">Ministro convidado</div><h2 class="sh-title" id="sheetTitulo">Acesso de '+esc(primeiro(m.nome))+' pronto</h2>'+
+  const txt="Olá, "+primeiro(m.nome)+"! Que alegria ter você servindo com a gente no "+CONFIG.NOME+" 💙\n\n"+
+    "No app da escala você vê o seu culto e a equipe"+(m.ministro?", confirma presença e lança o repertório":" e confirma presença")+":\n"+link+"\n\nUsuário: "+m.usuario+"\nSenha: "+senha+"\n\n"+
+    "Seu acesso fica ativo enquanto você estiver escalado(a).";
+  abrirSheet('<div class="eyebrow">Convidado</div><h2 class="sh-title" id="sheetTitulo">Acesso de '+esc(primeiro(m.nome))+' pronto</h2>'+
     '<p class="lead">Envie o acesso pelo WhatsApp. O texto já vai com o link do app, o usuário e a senha.</p>'+
     '<textarea class="copia" readonly>'+esc(txt)+'</textarea>'+
     '<div class="actions"><a class="btn" href="https://wa.me/?text='+encodeURIComponent(txt)+'" target="_blank" rel="noopener">Enviar no WhatsApp</a><button class="btn ghost" type="button" id="btnCopiarAcesso">Copiar texto</button><button class="btn ghost" type="button" data-act="membros">Voltar para Membros</button></div>');
@@ -2585,30 +2614,27 @@ async function telaMembros(editId){
   abrirSheet('<div class="eyebrow">Área do líder</div><h2 class="sh-title" id="sheetTitulo">Membros</h2>'+
     '<p class="lead">Cada membro entra com o próprio usuário e senha. Ministros lançam o repertório dos cultos em que estão escalados; líderes montam a escala.</p>'+
     '<form id="fMem" class="form"><fieldset class="bloco" style="margin-top:0"><legend>'+(ed?'Editando: '+esc(ed.nome):'Novo cadastro')+'</legend>'+
-    '<div class="tipo-mem" role="radiogroup" aria-label="Tipo de cadastro"><label><input type="radio" name="memTipo" id="memTipoEq"'+(ed&&ed.convidado?'':' checked')+'><span>Membro da equipe</span></label><label><input type="radio" name="memTipo" id="memTipoConv"'+(ed&&ed.convidado?' checked':'')+'><span>Ministro convidado</span></label></div>'+
-    '<p class="hint so-conv">Ministro de fora da igreja. Ele entra no app para ver o culto e a equipe, confirmar presença e lançar o repertório. O acesso fica ativo enquanto ele estiver escalado e encerra 2 dias depois do último culto.</p>'+
+    '<div class="tipo-mem" role="radiogroup" aria-label="Tipo de cadastro"><label><input type="radio" name="memTipo" id="memTipoEq"'+(ed&&ed.convidado?'':' checked')+'><span>Membro da equipe</span></label><label><input type="radio" name="memTipo" id="memTipoConv"'+(ed&&ed.convidado?' checked':'')+'><span>Convidado</span></label></div>'+
+    '<p class="hint so-conv">Ministro, backing ou músico de fora da igreja. Com senha, ele entra no app e vê só o culto em que vai servir (equipe, presença e, se for ministro, o repertório). O acesso fica ativo enquanto estiver escalado e encerra 2 dias depois do último culto.</p>'+
     '<div class="foto-edit"><span id="fotoPrev">'+avatar(ed||{nome:"?"})+'</span>'+
       '<span class="btn ghost sm file-btn"><span>'+(ed&&ed.foto?'Trocar foto':'Escolher foto')+'</span><input type="file" id="memFoto" accept="image/*" aria-label="Escolher foto"></span>'+
       (ed&&ed.foto?'<button class="btn ghost danger sm" type="button" id="memSemFoto">Remover foto</button>':'')+'</div>'+
     '<label for="memNome">Nome (como aparece na escala)</label><input id="memNome" value="'+esc(ed?ed.nome:"")+'" placeholder="Ex.: Lorena" autocomplete="off" required>'+
     '<label for="memUsuario">Usuário</label><input id="memUsuario" value="'+esc(ed?ed.usuario:"")+'" placeholder="Ex.: lorena" autocapitalize="none" autocorrect="off" spellcheck="false" autocomplete="off" required>'+
     '<label for="memEmail" id="memEmailLbl">E-mail para avisos (opcional)</label><input id="memEmail" type="email" inputmode="email" autocomplete="off" autocapitalize="none" value="'+esc(ed?ed.email:"")+'" placeholder="nome@gmail.com">'+
-    '<label for="memSenha">'+(ed?'Nova senha':'Senha inicial')+'</label><input id="memSenha" type="text" autocomplete="off" placeholder="'+(ed?'Deixe em branco para manter a atual':'Mínimo de 4 caracteres')+'">'+
-    '<div class="so-membro"><div class="lbl">Na equipe</div>'+
-    '<label class="check" for="memCant"><input type="checkbox" id="memCant"'+(ed&&ed.cantor?' checked':'')+'><span>Cantor(a)<small>Canta no backing. Aparece como sugestão no campo Backing.</small></span></label>'+
+    '<label for="memSenha" id="memSenhaLbl">'+(ed?'Nova senha':'Senha inicial')+'</label><input id="memSenha" type="text" autocomplete="off" placeholder="'+(ed?'Deixe em branco para manter a atual':'Mínimo de 4 caracteres')+'">'+
+    '<div class="lbl"><span class="so-membro">Na equipe</span><span class="so-conv">Vai servir como</span></div>'+
+    '<label class="check" for="memCant"><input type="checkbox" id="memCant"'+(ed&&ed.cantor?' checked':'')+'><span>Cantor(a) / Backing<small>Canta no backing. Aparece como sugestão no campo Backing.</small></span></label>'+
     '<label class="check" for="memMus"><input type="checkbox" id="memMus"'+(ed&&ed.musico?' checked':'')+'><span>Músico(a)<small>Toca um instrumento. Aparece como sugestão nos campos de instrumentos.</small></span></label>'+
-    '<div class="lbl">Permissões</div>'+
-    '<label class="check" for="memMin"><input type="checkbox" id="memMin"'+(ed&&ed.ministro?' checked':'')+'><span>Ministro<small>Pode ser escalado como cantor e lançar o repertório do culto.</small></span></label>'+
+    '<label class="check" for="memMin"><input type="checkbox" id="memMin"'+(ed&&ed.ministro?' checked':'')+'><span>Ministro<small>Pode ser escalado como ministro e lançar o repertório do culto.</small></span></label>'+
+    '<div class="so-membro"><div class="lbl">Permissões</div>'+
     '<label class="check" for="memDc"><input type="checkbox" id="memDc"'+(ed&&ed.permDresscode?' checked':'')+'><span>Dresscode<small>Pode definir o dresscode dos cultos, sem mexer no resto da escala. Líderes já podem.</small></span></label>'+
     '<label class="check" for="memLider"><input type="checkbox" id="memLider"'+(ed&&ed.lider?' checked':'')+'><span>Líder<small>Monta a escala, a limpeza e cadastra membros.</small></span></label></div>'+
-    '<p class="err" id="errMem"></p><div class="actions"><button class="btn" type="submit">'+(ed?'Salvar alterações':'Adicionar membro')+'</button>'+(ed?'<button class="btn ghost" type="button" data-act="membros">Cancelar</button>':'')+'</div></fieldset></form>'+
-    '<div class="sec" style="margin-top:14px"><h3>Ministros convidados</h3>'+
+    '<p class="err" id="errMem"></p><div class="actions"><button class="btn" type="submit" id="memSalvar">'+(ed?'Salvar alterações':'Adicionar membro')+'</button>'+(ed?'<button class="btn ghost" type="button" data-act="membros">Cancelar</button>':'')+'</div></fieldset></form>'+
+    '<div class="sec" style="margin-top:14px"><h3>Convidados</h3>'+
       (convMin.length?'<ul class="min-list">'+convMin.map(m=>'<li>'+avatar(m)+'<span class="nm">'+esc(m.nome)+badges(m)+'<small class="usr">@'+esc(m.usuario)+' · '+(m.email?esc(m.email):'<span style="color:var(--warn)">sem e-mail</span>')+'</small><small class="acesso'+(acessoConvidado({cultos:S.cultos},m,hojeStr()).ativo?' on':'')+'">'+esc(textoAcessoConvidado(m))+'</small></span>'+
         '<button class="btn ghost sm" data-act="editMembro" data-id="'+esc(m.id)+'">Editar</button><button class="btn ghost danger sm" data-act="delMembro" data-id="'+esc(m.id)+'">Excluir</button></li>').join("")+'</ul>'
-        :'<p class="hint" style="margin:0">Nenhum ministro convidado ainda. Use “Ministro convidado” no cadastro acima.</p>')+'</div>'+
-    '<div class="sec" style="margin-top:14px"><h3>Músicos convidados salvos</h3>'+
-      (S.convidados.length?'<ul class="min-list">'+S.convidados.slice().sort((a,b)=>a.nome.localeCompare(b.nome)).map(cv=>'<li>'+avatarPessoa(cv.nome)+'<span class="nm">'+esc(cv.nome)+'<small>Convidado de fora da igreja</small></span><button class="btn ghost danger sm" data-act="delConv" data-id="'+esc(cv.id)+'">Remover</button></li>').join("")+'</ul>'
-        :'<p class="hint" style="margin:0">Nenhum convidado ainda. Eles são salvos quando você escala um "Novo convidado" num culto ou aprova um pedido.</p>')+'</div>'+
+        :'<p class="hint" style="margin:0">Nenhum convidado ainda. Use “Convidado” no cadastro acima. Quem você escalar como “Novo convidado” num culto também aparece aqui.</p>')+'</div>'+
     '<div class="sec" style="margin-top:14px"><h3>'+lista.length+(lista.length===1?' membro da equipe':' membros da equipe')+' · '+lista.filter(m=>m.cantor).length+' cantores · '+lista.filter(m=>m.musico).length+' músicos</h3>'+
     '<div class="filtros" role="group" aria-label="Filtrar membros">'+[["todos","Todos"],["cantor","Cantores"],["musico","Músicos"],["ministro","Ministros"],["lider","Líderes"]].map(x=>'<button type="button" data-filtro="'+x[0]+'" aria-pressed="'+(filtroMembros===x[0])+'">'+x[1]+'</button>').join("")+'</div>'+
     '<ul class="min-list">'+lista.filter(m=>filtroMembros==="todos"||m[filtroMembros]).map(m=>'<li>'+avatar(m)+'<span class="nm">'+esc(m.nome)+badges(m)+'<small class="usr">@'+esc(m.usuario)+' · '+(m.email?esc(m.email):'<span style="color:var(--warn)">sem e-mail</span>')+'</small></span>'+
@@ -2618,7 +2644,9 @@ async function telaMembros(editId){
   if(!ed) $("#memNome").addEventListener("input",()=>{const u=$("#memUsuario");if(!u.dataset.mexeu) u.value=norm($("#memNome").value).split(/\s+/).filter(Boolean).join(".").replace(/[^a-z0-9._-]/g,"").replace(/\.{2,}/g,".").replace(/^\.|\.$/g,"");});
   $("#memUsuario").addEventListener("input",e=>{e.target.dataset.mexeu="1";});
   $("#memMin").addEventListener("change",e=>{if(e.target.checked) $("#memCant").checked=true;});
-  const tipoMem=()=>{const c=$("#memTipoConv").checked; $("#fMem").classList.toggle("modo-conv",c); $("#memEmailLbl").textContent=c?"E-mail para avisos (recomendado)":"E-mail para avisos (opcional)";};
+  const tipoMem=()=>{const c=$("#memTipoConv").checked; $("#fMem").classList.toggle("modo-conv",c); $("#memEmailLbl").textContent=c?"E-mail para avisos (recomendado)":"E-mail para avisos (opcional)";
+    $("#memSenhaLbl").textContent=ed?"Nova senha":(c?"Senha (só se ele for usar o app)":"Senha inicial");
+    $("#memUsuario").required=!c; if(!ed) $("#memSalvar").textContent=c?"Adicionar convidado":"Adicionar membro";};
   $("#memTipoEq").onchange=tipoMem; $("#memTipoConv").onchange=tipoMem; tipoMem();
   $("#memFoto").addEventListener("change",async e=>{
     const file=e.target.files&&e.target.files[0]; if(!file) return;
@@ -2636,7 +2664,7 @@ async function telaMembros(editId){
         email:$("#memEmail").value,ministro:$("#memMin").checked,lider:$("#memLider").checked,permDresscode:$("#memDc").checked,cantor:$("#memCant").checked,musico:$("#memMus").checked,foto:novaFoto||"",removerFoto:remover}});
       membrosCompletos=[]; await carregar();
       if(ed&&S.eu&&ed.id===S.eu.id){try{const r=await chamar("me",{});S.eu=r.eu;lsSet("louvor_eu",JSON.stringify(r.eu));}catch(x){} render();}
-      toast(conv?(ed?"Ministro convidado atualizado":"Ministro convidado cadastrado"):(ed?"Membro atualizado":"Membro adicionado"));
+      toast(conv?(ed?"Convidado atualizado":"Convidado cadastrado"):(ed?"Membro atualizado":"Membro adicionado"));
       if(conv&&senhaDig&&rs&&rs.membro) telaAcessoConvidado(rs.membro,senhaDig); else telaMembros();
     }catch(err){$("#errMem").textContent=err.message;livre(btn);}
   };
